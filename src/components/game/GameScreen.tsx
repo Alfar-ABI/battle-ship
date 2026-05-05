@@ -67,7 +67,10 @@ export function GameScreen() {
     if (turn !== "player" || phase !== "playing") return;
     if (enemy.shots[cellKey(x, y)]) return;
     const { board, outcome, ship } = fireAt(enemy, x, y);
-    setEnemy(board);
+    // Preserve user marks; clear the mark on the fired cell.
+    const marks = { ...(enemy.marks ?? {}) };
+    delete marks[cellKey(x, y)];
+    setEnemy({ ...board, marks });
     setShotsFired((n) => n + 1);
     if (outcome === "miss") { sfx.miss(); pushLog(`Miss at ${String.fromCharCode(65 + x)}${y + 1}`); }
     else if (outcome === "hit") { sfx.hit(); pushLog(`Direct hit at ${String.fromCharCode(65 + x)}${y + 1}`); }

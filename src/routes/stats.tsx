@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/stats")({
   component: StatsPage,
-  head: () => ({ meta: [{ title: "Stats · Cyber-Command" }] }),
+  head: () => ({ meta: [{ title: "Stats · Battleship" }] }),
 });
 
 interface Match {
