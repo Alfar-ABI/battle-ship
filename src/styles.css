@@ -35,9 +35,9 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-:root {
+:root, .dark {
   --radius: 0.5rem;
-  /* Cyber-Command dark only */
+  /* Cyber-Command dark */
   --background: oklch(0.14 0.03 250);
   --foreground: oklch(0.96 0.02 220);
   --card: oklch(0.18 0.04 250 / 0.55);
