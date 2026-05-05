@@ -79,7 +79,7 @@ export function PlacementBoard({ onConfirm }: Props) {
         <div>
           <h3 className="font-display uppercase tracking-widest text-sm neon-cyan">Fleet</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Select a ship, hover the grid, click to deploy. Press R to rotate.
+            Select a ship, hover the grid, and click to deploy. Use Rotate to change orientation.
           </p>
         </div>
 
