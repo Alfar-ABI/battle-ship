@@ -113,14 +113,11 @@ export function GameScreen() {
         return;
       }
       if (outcome === "miss") setTurn("player");
-      else if (outcome === "hit" || outcome === "sunk") {
-        // enemy gets another turn
-        setTurn("enemy");
-      }
+      else setEnemyTick((n) => n + 1); // hit/sunk: another enemy turn
     }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, phase]);
+  }, [turn, phase, enemyTick]);
 
   if (phase === "setup") {
     return (
