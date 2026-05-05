@@ -39,6 +39,7 @@ export function GameScreen() {
     aiMem.current = createAI();
     savedRef.current = false;
     startTime.current = Date.now();
+    setSunk(null);
     setPhase("playing");
   }
 
