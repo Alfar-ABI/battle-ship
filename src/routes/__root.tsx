@@ -74,26 +74,51 @@ function ThemeToggle() {
 
 function NavBar() {
   const { user, signOut } = useAuth();
+  const [rules, setRules] = useState(false);
   return (
-    <header className="relative z-10 px-5 h-16 flex items-center justify-between border-b border-border/40 backdrop-blur-md bg-background/40">
-      <Link to="/" className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-md border border-[var(--cyan)]/60 flex items-center justify-center neon-cyan font-display">⌬</div>
-        <div className="font-display uppercase tracking-widest text-sm">
-          Cyber-<span className="neon-cyan">Command</span>
+    <>
+      <header className="relative z-10 px-5 h-16 flex items-center justify-between border-b border-border/40 backdrop-blur-md bg-background/40">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-md border border-[var(--cyan)]/60 flex items-center justify-center neon-cyan font-display">⌬</div>
+          <div className="font-display uppercase tracking-widest text-sm">
+            <span className="neon-cyan">Battleship</span>
+          </div>
+        </Link>
+        <nav className="flex items-center gap-2">
+          <Link to="/" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Home</Link>
+          <Link to="/play" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Play</Link>
+          {user && <Link to="/stats" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Stats</Link>}
+          <button
+            onClick={() => setRules(true)}
+            className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground border border-border rounded-md"
+          >
+            Rules
+          </button>
+          <ThemeToggle />
+          {user ? (
+            <button onClick={() => signOut()} className="btn-danger !py-1.5 !px-3 !text-xs">Sign Out</button>
+          ) : (
+            <Link to="/login" className="btn-cyber !py-1.5 !px-3 !text-xs">Login</Link>
+          )}
+        </nav>
+      </header>
+      <CyberModal
+        open={rules}
+        variant="info"
+        title="Rules"
+        onClose={() => setRules(false)}
+        actions={<button className="btn-cyber" onClick={() => setRules(false)}>Got it</button>}
+      >
+        <div className="text-left space-y-2 text-sm">
+          <p>• Place 5 ships on your 10×10 grid. Ships cannot touch — not even diagonally.</p>
+          <p>• Players take turns firing at the enemy grid. A miss ends your turn; a hit lets you fire again.</p>
+          <p>• <span className="neon-cyan">Left-click</span> a cell on enemy waters to fire.</p>
+          <p>• <span className="neon-enemy">Right-click</span> a cell to mark it as a "no ship" guess (toggle).</p>
+          <p>• Sink all five enemy ships (Carrier 5, Battleship 4, Destroyer 3, Submarine 3, Patrol 2) to win.</p>
+          <p>• Difficulty: Easy = random, Medium = hunts adjacent after a hit, Hard = probability-density targeting.</p>
         </div>
-      </Link>
-      <nav className="flex items-center gap-2">
-        <Link to="/" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Home</Link>
-        <Link to="/play" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Play</Link>
-        {user && <Link to="/stats" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Stats</Link>}
-        <ThemeToggle />
-        {user ? (
-          <button onClick={() => signOut()} className="btn-danger !py-1.5 !px-3 !text-xs">Sign Out</button>
-        ) : (
-          <Link to="/login" className="btn-cyber !py-1.5 !px-3 !text-xs">Login</Link>
-        )}
-      </nav>
-    </header>
+      </CyberModal>
+    </>
   );
 }
 
