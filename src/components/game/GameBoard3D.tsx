@@ -68,8 +68,9 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
       </mesh>
     );
   }
+  const [px, , pz] = gridPos(x, y);
   return (
-    <group position={[...gridPos(x, y).slice(0, 1), 0.45, gridPos(x, y)[2]] as [number, number, number]}>
+    <group position={[px, 0.45, pz]}>
       <mesh ref={ref}>
         <sphereGeometry args={[0.22, 16, 16]} />
         <meshStandardMaterial color="#ff3b30" emissive="#ff3b30" emissiveIntensity={1.2} />
