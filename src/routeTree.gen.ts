@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as PlayRouteImport } from './routes/play'
+import { Route as MpSessionIdRouteImport } from './routes/mp.$sessionId'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const StatsRoute = StatsRouteImport.update({
 const PlayRoute = PlayRouteImport.update({
   id: '/play',
   path: '/play',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MpSessionIdRoute = MpSessionIdRouteImport.update({
+  id: '/mp/$sessionId',
+  path: '/mp/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mp/$sessionId': typeof MpSessionIdRoute
   '/play': typeof PlayRoute
   '/stats': typeof StatsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mp/$sessionId': typeof MpSessionIdRoute
   '/play': typeof PlayRoute
   '/stats': typeof StatsRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mp/$sessionId': typeof MpSessionIdRoute
   '/play': typeof PlayRoute
   '/stats': typeof StatsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/play' | '/stats'
+  fullPaths: '/' | '/login' | '/mp/$sessionId' | '/play' | '/stats'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/play' | '/stats'
-  id: '__root__' | '/' | '/login' | '/play' | '/stats'
+  to: '/' | '/login' | '/mp/$sessionId' | '/play' | '/stats'
+  id: '__root__' | '/' | '/login' | '/mp/$sessionId' | '/play' | '/stats'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  MpSessionIdRoute: typeof MpSessionIdRoute
   PlayRoute: typeof PlayRoute
   StatsRoute: typeof StatsRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/play'
       fullPath: '/play'
       preLoaderRoute: typeof PlayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mp/$sessionId': {
+      id: '/mp/$sessionId'
+      path: '/mp/$sessionId'
+      fullPath: '/mp/$sessionId'
+      preLoaderRoute: typeof MpSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  MpSessionIdRoute: MpSessionIdRoute,
   PlayRoute: PlayRoute,
   StatsRoute: StatsRoute,
 }

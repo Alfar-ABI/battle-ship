@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 
 type Phase = "setup" | "playing" | "over";
 
-export function GameScreen() {
+export function GameScreen({ onBack }: { onBack?: () => void }) {
   const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>("setup");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -140,6 +140,9 @@ export function GameScreen() {
     return (
       <div className="h-[calc(100vh-80px)] p-4">
         <div className="flex items-center gap-3 mb-3">
+          {onBack && (
+            <button onClick={() => { sfx.click(); onBack(); }} className="text-muted-foreground hover:text-foreground text-xs font-display uppercase tracking-widest">← Lobby</button>
+          )}
           <span className="font-display text-xs uppercase tracking-widest text-muted-foreground">Difficulty:</span>
           {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
             <button key={d}

@@ -7,7 +7,7 @@ interface AuthCtx {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, nickname?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -34,11 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error: error?.message };
     },
-    signUp: async (email, password) => {
-      const { error } = await supabase.auth.signUp({
+    signUp: async (email, password, nickname) => {
+      const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { emailRedirectTo: `${window.location.origin}/` },
       });
+      if (!error && data.user && nickname?.trim()) {
+        await supabase.from("profiles").upsert({ id: data.user.id, username: nickname.trim() });
+      }
       return { error: error?.message };
     },
     signOut: async () => { await supabase.auth.signOut(); },

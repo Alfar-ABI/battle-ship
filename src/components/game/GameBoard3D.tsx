@@ -36,7 +36,7 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
 
   const hullColor = sunk ? "#3a3a3a" : color;
   const deckColor = "#0b1220";
-  const accentEmissive = sunk ? 0.02 : 0.35;
+  const accentEmissive = sunk ? 0.02 : 0.75;
 
   // Number of turrets/funnels scales with size
   const turretCount = Math.max(1, ship.size - 2);
@@ -46,7 +46,7 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
       {/* Main hull (slightly tapered using box) */}
       <mesh position={[0, 0.12, 0]} castShadow>
         <boxGeometry args={[len * 0.78, 0.18, wid]} />
-        <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} emissive={color} emissiveIntensity={accentEmissive * 0.4} />
+        <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} emissive={color} emissiveIntensity={accentEmissive * 0.55} />
       </mesh>
 
       {/* Bow (pointed front) */}
@@ -230,6 +230,17 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
     return new Set(hoverPreview.cells.map((c) => cellKey(c.x, c.y)));
   }, [hoverPreview]);
 
+  // Cells belonging to sunk ships — hit markers hidden here (model replaces them)
+  const sunkCells = useMemo(() => {
+    const s = new Set<string>();
+    for (const ship of board.ships) {
+      if (ship.hits >= ship.size) {
+        for (const c of shipCells(ship)) s.add(cellKey(c.x, c.y));
+      }
+    }
+    return s;
+  }, [board.ships]);
+
   const cells = [];
   for (let y = 0; y < BOARD_SIZE; y++) {
     for (let x = 0; x < BOARD_SIZE; x++) {
@@ -259,9 +270,9 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
     <>
       <color attach="background" args={[bgColor]} />
       <fog attach="fog" args={[bgColor, 16, 34]} />
-      <ambientLight intensity={isLight ? 0.7 : 0.35} />
-      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.1 : 0.8} />
-      <pointLight position={[0, 4, 0]} intensity={0.6} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
+      <ambientLight intensity={isLight ? 0.9 : 0.55} />
+      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.3 : 1.1} />
+      <pointLight position={[0, 4, 0]} intensity={1.2} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
 
       <group>
         <mesh position={[0, -0.05, 0]} receiveShadow>
@@ -276,6 +287,7 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
           ) : null
         )}
         {Object.entries(board.shots).map(([k, v]) => {
+          if (v === "hit" && sunkCells.has(k)) return null;
           const [x, y] = k.split(",").map(Number);
           return <HitMarker key={k} x={x} y={y} type={v} />;
         })}
