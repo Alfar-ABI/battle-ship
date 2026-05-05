@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import {
   BOARD_SIZE, SHIP_DEFS, type PlacedShip, type Orientation,
