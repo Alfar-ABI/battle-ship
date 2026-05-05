@@ -263,25 +263,23 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
       <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.1 : 0.8} />
       <pointLight position={[0, 4, 0]} intensity={0.6} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
 
-      <Float speed={0.6} rotationIntensity={0.05} floatIntensity={0.1}>
-        <group>
-          <mesh position={[0, -0.05, 0]} receiveShadow>
-            <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
-            <meshStandardMaterial color="#070c14" metalness={0.8} roughness={0.4} />
-          </mesh>
-          <GridLines />
-          {cells}
-          {board.ships.map((s) =>
-            (revealShips || s.hits >= s.size) ? (
-              <ShipMesh key={s.id} ship={s} color={isEnemy ? "#ff5b50" : "#3ad8ff"} sunk={s.hits >= s.size} />
-            ) : null
-          )}
-          {Object.entries(board.shots).map(([k, v]) => {
-            const [x, y] = k.split(",").map(Number);
-            return <HitMarker key={k} x={x} y={y} type={v} />;
-          })}
-        </group>
-      </Float>
+      <group>
+        <mesh position={[0, -0.05, 0]} receiveShadow>
+          <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
+          <meshStandardMaterial color={isLight ? "#cfd8e3" : "#070c14"} metalness={0.5} roughness={0.5} />
+        </mesh>
+        <GridLines />
+        {cells}
+        {board.ships.map((s) =>
+          (revealShips || s.hits >= s.size) ? (
+            <ShipMesh key={s.id} ship={s} color={isEnemy ? "#ff5b50" : "#3ad8ff"} sunk={s.hits >= s.size} />
+          ) : null
+        )}
+        {Object.entries(board.shots).map(([k, v]) => {
+          const [x, y] = k.split(",").map(Number);
+          return <HitMarker key={k} x={x} y={y} type={v} />;
+        })}
+      </group>
 
       <OrbitControls
         enablePan={false}
