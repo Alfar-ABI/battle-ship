@@ -32,13 +32,10 @@ function Index() {
         </div>
 
         <div className="glass p-6 space-y-3">
-          <Link to="/login" search={{ mode: "signin" }} className="btn-cyber w-full">
-            Log In
+          <Link to="/login" className="btn-cyber w-full">
+            Log In / Sign Up
           </Link>
-          <Link to="/login" search={{ mode: "signup" }} className="btn-cyber w-full">
-            Sign Up
-          </Link>
-          <Link to="/play" search={{ guest: 1 }} className="btn-danger w-full">
+          <Link to="/play" className="btn-danger w-full">
             Play as Guest
           </Link>
           <p className="text-[10px] text-muted-foreground text-center pt-2">
