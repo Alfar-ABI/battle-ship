@@ -40,13 +40,33 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <head><HeadContent /></head>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('cc-theme');if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}}catch(e){}`,
+          }}
+        />
+      </head>
       <body>
         {children}
         <Scripts />
       </body>
     </html>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      onClick={toggle}
+      title="Toggle theme"
+      className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground border border-border rounded-md"
+    >
+      {theme === "dark" ? "☾ Dark" : "☀ Light"}
+    </button>
   );
 }
 
@@ -64,6 +84,7 @@ function NavBar() {
         <Link to="/" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Home</Link>
         <Link to="/play" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Play</Link>
         {user && <Link to="/stats" className="px-3 py-1.5 text-xs font-display uppercase tracking-widest text-muted-foreground hover:text-foreground">Stats</Link>}
+        <ThemeToggle />
         {user ? (
           <button onClick={() => signOut()} className="btn-danger !py-1.5 !px-3 !text-xs">Sign Out</button>
         ) : (
@@ -75,15 +96,18 @@ function NavBar() {
 }
 
 function RootComponent() {
+  const theme = typeof document !== "undefined" ? document.documentElement.classList.contains("light") ? "light" : "dark" : "dark";
   return (
-    <AuthProvider>
-      <div className="relative min-h-screen">
-        <NavBar />
-        <main className="relative z-10">
-          <Outlet />
-        </main>
-        <Toaster theme="dark" position="top-right" />
-      </div>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <div className="relative min-h-screen">
+          <NavBar />
+          <main className="relative z-10">
+            <Outlet />
+          </main>
+          <Toaster theme={theme} position="top-right" />
+        </div>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
