@@ -86,6 +86,7 @@ export function GameScreen() {
     if (outcome === "miss") setTurn("enemy");
   }
 
+  const [enemyTick, setEnemyTick] = useState(0);
   // Enemy turn
   useEffect(() => {
     if (phase !== "playing" || turn !== "enemy") return;
