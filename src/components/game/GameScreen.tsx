@@ -73,8 +73,7 @@ export function GameScreen() {
     else if (outcome === "sunk" && ship) {
       sfx.sunk();
       pushLog(`Enemy ${ship.name} destroyed!`);
-      setModal({ variant: "sunk", title: "Ship Destroyed", body: `Enemy ${ship.name} obliterated.` });
-      setTimeout(() => setModal(null), 1800);
+      setSunk({ name: ship.name, side: "enemy" });
     }
     if (allSunk(board)) {
       setTimeout(() => {
