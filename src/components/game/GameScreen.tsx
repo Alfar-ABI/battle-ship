@@ -22,8 +22,9 @@ export function GameScreen() {
   const [turn, setTurn] = useState<"player" | "enemy">("player");
   const [log, setLog] = useState<string[]>([]);
   const [modal, setModal] = useState<{
-    variant: "info" | "win" | "lose" | "danger" | "sunk"; title: string; body?: string;
+    variant: "info" | "win" | "lose" | "danger"; title: string; body?: string;
   } | null>(null);
+  const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [shotsFired, setShotsFired] = useState(0);
   const startTime = useRef<number>(0);
   const aiMem = useRef(createAI());
