@@ -25,8 +25,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Cyber-Command · Battleship" },
-      { name: "description", content: "High-end 3D Battleship with futuristic Cyber-Command UI." },
+      { title: "Battleship" },
+      { name: "description", content: "High-end 3D Battleship with a futuristic UI." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
