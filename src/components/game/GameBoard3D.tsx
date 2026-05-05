@@ -166,7 +166,7 @@ function CellTile({
 
   return (
     <mesh
-      position={[...gridPos(x, y).slice(0, 1), 0.015, gridPos(x, y)[2]] as [number, number, number]}
+      position={[gridPos(x, y)[0], 0.015, gridPos(x, y)[2]]}
       rotation={[-Math.PI / 2, 0, 0]}
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       onPointerOver={(e) => { e.stopPropagation(); onEnter(); }}
