@@ -99,6 +99,8 @@ export function GameScreen() {
     });
   }
 
+  useEffect(() => { if (phase === "over") setSunk(null); }, [phase]);
+
   const [enemyTick, setEnemyTick] = useState(0);
   // Enemy turn
   useEffect(() => {
