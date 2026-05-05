@@ -296,12 +296,11 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
 
 export function GameBoard3D(props: BoardProps) {
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" onContextMenu={(e) => e.preventDefault()}>
       <Canvas
         camera={{ position: [0, 12, 12], fov: 45 }}
-        dpr={[1, 2]}
+        dpr={[1.5, 2]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        flat
       >
         <Scene {...props} />
       </Canvas>
