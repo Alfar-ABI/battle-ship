@@ -112,8 +112,7 @@ export function GameScreen() {
       else if (outcome === "sunk" && ship) {
         sfx.sunk();
         pushLog(`Your ${ship.name} was destroyed!`);
-        setModal({ variant: "danger", title: "Ship Lost", body: `Your ${ship.name} is down.` });
-        setTimeout(() => setModal(null), 1400);
+        setSunk({ name: ship.name, side: "player" });
       }
       if (allSunk(board)) {
         setTimeout(() => {
