@@ -1,6 +1,8 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useState } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider, useTheme } from "@/lib/theme";
+import { CyberModal } from "@/components/game/CyberModal";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
