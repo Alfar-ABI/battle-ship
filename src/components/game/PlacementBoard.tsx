@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import {
   BOARD_SIZE, SHIP_DEFS, type PlacedShip, type Orientation,
@@ -30,6 +30,17 @@ export function PlacementBoard({ onConfirm }: Props) {
     const valid = isValidPlacement(ships.filter((s) => s.id !== selectedDef.id), candidate);
     return { cells, valid };
   }, [hover, selectedDef, orientation, ships]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "r" || e.key === "R") {
+        sfx.click();
+        setOrientation((o) => (o === "h" ? "v" : "h"));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function placeAt(x: number, y: number) {
     if (!selectedDef) return;

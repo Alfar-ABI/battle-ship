@@ -49,12 +49,19 @@ export function isValidPlacement(
   for (const c of cells) {
     if (c.x < 0 || c.y < 0 || c.x >= BOARD_SIZE || c.y >= BOARD_SIZE) return false;
   }
-  const occupied = new Set<string>();
+  // Build occupied + buffer (1-cell halo) of all OTHER ships
+  const blocked = new Set<string>();
   for (const s of ships) {
     if (s.id === candidate.id) continue;
-    for (const c of shipCells(s)) occupied.add(cellKey(c.x, c.y));
+    for (const c of shipCells(s)) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          blocked.add(cellKey(c.x + dx, c.y + dy));
+        }
+      }
+    }
   }
-  for (const c of cells) if (occupied.has(cellKey(c.x, c.y))) return false;
+  for (const c of cells) if (blocked.has(cellKey(c.x, c.y))) return false;
   return true;
 }
 
