@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import { CyberModal } from "./CyberModal";
+import { SunkBanner } from "./SunkBanner";
 import { PlacementBoard } from "./PlacementBoard";
 import {
   type BoardState, type PlacedShip, autoPlace, allSunk, fireAt, cellKey,
@@ -23,6 +24,7 @@ export function GameScreen() {
   const [modal, setModal] = useState<{
     variant: "info" | "win" | "lose" | "danger"; title: string; body?: string;
   } | null>(null);
+  const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [shotsFired, setShotsFired] = useState(0);
   const startTime = useRef<number>(0);
   const aiMem = useRef(createAI());
@@ -37,6 +39,7 @@ export function GameScreen() {
     aiMem.current = createAI();
     savedRef.current = false;
     startTime.current = Date.now();
+    setSunk(null);
     setPhase("playing");
   }
 
@@ -71,8 +74,7 @@ export function GameScreen() {
     else if (outcome === "sunk" && ship) {
       sfx.sunk();
       pushLog(`Enemy ${ship.name} destroyed!`);
-      setModal({ variant: "danger", title: "Ship Destroyed", body: `Enemy ${ship.name} obliterated.` });
-      setTimeout(() => setModal(null), 1400);
+      setSunk({ name: ship.name, side: "enemy" });
     }
     if (allSunk(board)) {
       setTimeout(() => {
@@ -85,6 +87,19 @@ export function GameScreen() {
     }
     if (outcome === "miss") setTurn("enemy");
   }
+
+  function toggleEnemyMark(x: number, y: number) {
+    const k = cellKey(x, y);
+    if (enemy.shots[k]) return;
+    sfx.click();
+    setEnemy((b) => {
+      const marks = { ...(b.marks ?? {}) };
+      if (marks[k]) delete marks[k]; else marks[k] = true;
+      return { ...b, marks };
+    });
+  }
+
+  useEffect(() => { if (phase === "over") setSunk(null); }, [phase]);
 
   const [enemyTick, setEnemyTick] = useState(0);
   // Enemy turn
@@ -100,8 +115,7 @@ export function GameScreen() {
       else if (outcome === "sunk" && ship) {
         sfx.sunk();
         pushLog(`Your ${ship.name} was destroyed!`);
-        setModal({ variant: "danger", title: "Ship Lost", body: `Your ${ship.name} is down.` });
-        setTimeout(() => setModal(null), 1400);
+        setSunk({ name: ship.name, side: "player" });
       }
       if (allSunk(board)) {
         setTimeout(() => {
@@ -172,14 +186,18 @@ export function GameScreen() {
 
         <section className="glass relative overflow-hidden min-h-[300px]">
           <div className="absolute top-3 left-3 z-10 font-display text-xs uppercase tracking-widest neon-enemy">Enemy Waters</div>
+          <div className="absolute top-3 right-3 z-10 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Right-click to mark</div>
           <GameBoard3D
             board={enemy}
             isEnemy
             revealShips={phase === "over"}
             onCellClick={(x, y) => playerFire(x, y)}
+            onCellRightClick={(x, y) => toggleEnemyMark(x, y)}
           />
         </section>
       </div>
+
+      <SunkBanner shipName={sunk?.name ?? null} side={sunk?.side ?? "enemy"} />
 
       <CyberModal
         open={!!modal}

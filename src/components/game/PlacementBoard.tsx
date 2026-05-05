@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import {
   BOARD_SIZE, SHIP_DEFS, type PlacedShip, type Orientation,
@@ -31,16 +31,7 @@ export function PlacementBoard({ onConfirm }: Props) {
     return { cells, valid };
   }, [hover, selectedDef, orientation, ships]);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "r" || e.key === "R") {
-        sfx.click();
-        setOrientation((o) => (o === "h" ? "v" : "h"));
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  // R hotkey removed per design.
 
   function placeAt(x: number, y: number) {
     if (!selectedDef) return;
@@ -88,7 +79,7 @@ export function PlacementBoard({ onConfirm }: Props) {
         <div>
           <h3 className="font-display uppercase tracking-widest text-sm neon-cyan">Fleet</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Select a ship, hover the grid, click to deploy. Press R to rotate.
+            Select a ship, hover the grid, and click to deploy. Use Rotate to change orientation.
           </p>
         </div>
 

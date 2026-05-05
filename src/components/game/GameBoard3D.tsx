@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Float } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { BoardState, PlacedShip } from "@/lib/game/types";
@@ -10,6 +10,7 @@ interface BoardProps {
   isEnemy: boolean;
   revealShips: boolean;
   onCellClick?: (x: number, y: number) => void;
+  onCellRightClick?: (x: number, y: number) => void;
   onCellHover?: (x: number, y: number | null) => void;
   hoverCell?: { x: number; y: number } | null;
   hoverPreview?: { cells: { x: number; y: number }[]; valid: boolean } | null;
@@ -143,13 +144,14 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
 }
 
 function CellTile({
-  x, y, hovered, previewState, shot, onClick, onEnter, onLeave, isEnemy,
+  x, y, hovered, previewState, shot, marked, onClick, onRightClick, onEnter, onLeave, isEnemy,
 }: {
   x: number; y: number;
   hovered: boolean;
   previewState: "none" | "valid" | "invalid";
   shot: "miss" | "hit" | undefined;
-  onClick: () => void; onEnter: () => void; onLeave: () => void;
+  marked: boolean;
+  onClick: () => void; onRightClick: () => void; onEnter: () => void; onLeave: () => void;
   isEnemy: boolean;
 }) {
   const baseColor = isEnemy ? "#150a10" : "#08111c";
@@ -157,24 +159,44 @@ function CellTile({
   const previewColor = previewState === "valid" ? "#3ad8ff" : "#ff3b30";
   const showPreview = previewState !== "none";
 
-  // When showing preview or hovering, use BasicMaterial (no lighting interference)
-  // so the color reads as a clean flat neon instead of a muddy mix.
   let color = baseColor;
   let opacity = 0.7;
   if (showPreview) { color = previewColor; opacity = 0.55; }
   else if (hovered && !shot) { color = hoverColor; opacity = 0.55; }
+  else if (marked) { color = "#ffd84a"; opacity = 0.4; }
+
+  const [px, , pz] = gridPos(x, y);
 
   return (
-    <mesh
-      position={[gridPos(x, y)[0], 0.015, gridPos(x, y)[2]]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      onPointerOver={(e) => { e.stopPropagation(); onEnter(); }}
-      onPointerOut={() => onLeave()}
-    >
-      <planeGeometry args={[CELL * 0.94, CELL * 0.94]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} side={THREE.DoubleSide} />
-    </mesh>
+    <group>
+      <mesh
+        position={[px, 0.015, pz]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        onContextMenu={(e) => { e.stopPropagation(); (e as any).nativeEvent?.preventDefault?.(); onRightClick(); }}
+        onPointerOver={(e) => { e.stopPropagation(); onEnter(); }}
+        onPointerOut={() => onLeave()}
+      >
+        <planeGeometry args={[CELL * 0.94, CELL * 0.94]} />
+        <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+      {marked && !shot && (
+        <group position={[px, 0.08, pz]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh>
+            <ringGeometry args={[0.22, 0.3, 4]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh rotation={[0, 0, Math.PI / 4]}>
+            <planeGeometry args={[0.5, 0.06]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh rotation={[0, 0, -Math.PI / 4]}>
+            <planeGeometry args={[0.5, 0.06]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      )}
+    </group>
   );
 }
 
@@ -199,8 +221,10 @@ function GridLines() {
   );
 }
 
-function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPreview }: BoardProps) {
+function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview }: BoardProps) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  const isLight = typeof document !== "undefined" && document.documentElement.classList.contains("light");
+  const bgColor = isLight ? "#e8eef5" : "#05070d";
   const previewSet = useMemo(() => {
     if (!hoverPreview) return null;
     return new Set(hoverPreview.cells.map((c) => cellKey(c.x, c.y)));
@@ -212,6 +236,7 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
       const k = cellKey(x, y);
       const shot = board.shots[k];
       const isHover = hover?.x === x && hover?.y === y;
+      const marked = !!board.marks?.[k];
       let preview: "none" | "valid" | "invalid" = "none";
       if (previewSet?.has(k)) preview = hoverPreview!.valid ? "valid" : "invalid";
       cells.push(
@@ -219,10 +244,12 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
           shot={shot}
           hovered={isHover}
           previewState={preview}
+          marked={marked}
           isEnemy={isEnemy}
           onEnter={() => { setHover({ x, y }); onCellHover?.(x, y); }}
           onLeave={() => { setHover(null); onCellHover?.(x, null); }}
           onClick={() => onCellClick?.(x, y)}
+          onRightClick={() => onCellRightClick?.(x, y)}
         />
       );
     }
@@ -230,31 +257,29 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
 
   return (
     <>
-      <color attach="background" args={["#05070d"]} />
-      <fog attach="fog" args={["#05070d", 16, 34]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 10, 5]} intensity={0.8} />
+      <color attach="background" args={[bgColor]} />
+      <fog attach="fog" args={[bgColor, 16, 34]} />
+      <ambientLight intensity={isLight ? 0.7 : 0.35} />
+      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.1 : 0.8} />
       <pointLight position={[0, 4, 0]} intensity={0.6} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
 
-      <Float speed={0.6} rotationIntensity={0.05} floatIntensity={0.1}>
-        <group>
-          <mesh position={[0, -0.05, 0]} receiveShadow>
-            <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
-            <meshStandardMaterial color="#070c14" metalness={0.8} roughness={0.4} />
-          </mesh>
-          <GridLines />
-          {cells}
-          {board.ships.map((s) =>
-            (revealShips || s.hits >= s.size) ? (
-              <ShipMesh key={s.id} ship={s} color={isEnemy ? "#ff5b50" : "#3ad8ff"} sunk={s.hits >= s.size} />
-            ) : null
-          )}
-          {Object.entries(board.shots).map(([k, v]) => {
-            const [x, y] = k.split(",").map(Number);
-            return <HitMarker key={k} x={x} y={y} type={v} />;
-          })}
-        </group>
-      </Float>
+      <group>
+        <mesh position={[0, -0.05, 0]} receiveShadow>
+          <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
+          <meshStandardMaterial color={isLight ? "#cfd8e3" : "#070c14"} metalness={0.5} roughness={0.5} />
+        </mesh>
+        <GridLines />
+        {cells}
+        {board.ships.map((s) =>
+          (revealShips || s.hits >= s.size) ? (
+            <ShipMesh key={s.id} ship={s} color={isEnemy ? "#ff5b50" : "#3ad8ff"} sunk={s.hits >= s.size} />
+          ) : null
+        )}
+        {Object.entries(board.shots).map(([k, v]) => {
+          const [x, y] = k.split(",").map(Number);
+          return <HitMarker key={k} x={x} y={y} type={v} />;
+        })}
+      </group>
 
       <OrbitControls
         enablePan={false}
@@ -271,12 +296,11 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
 
 export function GameBoard3D(props: BoardProps) {
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" onContextMenu={(e) => e.preventDefault()}>
       <Canvas
         camera={{ position: [0, 12, 12], fov: 45 }}
-        dpr={[1, 2]}
+        dpr={[1.5, 2]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        flat
       >
         <Scene {...props} />
       </Canvas>
