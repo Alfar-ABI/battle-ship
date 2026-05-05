@@ -144,13 +144,14 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
 }
 
 function CellTile({
-  x, y, hovered, previewState, shot, onClick, onEnter, onLeave, isEnemy,
+  x, y, hovered, previewState, shot, marked, onClick, onRightClick, onEnter, onLeave, isEnemy,
 }: {
   x: number; y: number;
   hovered: boolean;
   previewState: "none" | "valid" | "invalid";
   shot: "miss" | "hit" | undefined;
-  onClick: () => void; onEnter: () => void; onLeave: () => void;
+  marked: boolean;
+  onClick: () => void; onRightClick: () => void; onEnter: () => void; onLeave: () => void;
   isEnemy: boolean;
 }) {
   const baseColor = isEnemy ? "#150a10" : "#08111c";
@@ -158,24 +159,44 @@ function CellTile({
   const previewColor = previewState === "valid" ? "#3ad8ff" : "#ff3b30";
   const showPreview = previewState !== "none";
 
-  // When showing preview or hovering, use BasicMaterial (no lighting interference)
-  // so the color reads as a clean flat neon instead of a muddy mix.
   let color = baseColor;
   let opacity = 0.7;
   if (showPreview) { color = previewColor; opacity = 0.55; }
   else if (hovered && !shot) { color = hoverColor; opacity = 0.55; }
+  else if (marked) { color = "#ffd84a"; opacity = 0.4; }
+
+  const [px, , pz] = gridPos(x, y);
 
   return (
-    <mesh
-      position={[gridPos(x, y)[0], 0.015, gridPos(x, y)[2]]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      onPointerOver={(e) => { e.stopPropagation(); onEnter(); }}
-      onPointerOut={() => onLeave()}
-    >
-      <planeGeometry args={[CELL * 0.94, CELL * 0.94]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} side={THREE.DoubleSide} />
-    </mesh>
+    <group>
+      <mesh
+        position={[px, 0.015, pz]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        onContextMenu={(e) => { e.stopPropagation(); (e as any).nativeEvent?.preventDefault?.(); onRightClick(); }}
+        onPointerOver={(e) => { e.stopPropagation(); onEnter(); }}
+        onPointerOut={() => onLeave()}
+      >
+        <planeGeometry args={[CELL * 0.94, CELL * 0.94]} />
+        <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+      {marked && !shot && (
+        <group position={[px, 0.08, pz]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh>
+            <ringGeometry args={[0.22, 0.3, 4]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh rotation={[0, 0, Math.PI / 4]}>
+            <planeGeometry args={[0.5, 0.06]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh rotation={[0, 0, -Math.PI / 4]}>
+            <planeGeometry args={[0.5, 0.06]} />
+            <meshBasicMaterial color="#ffd84a" toneMapped={false} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      )}
+    </group>
   );
 }
 
