@@ -119,6 +119,11 @@
     mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
     z-index: 0;
   }
+  .light body::before {
+    background-image:
+      linear-gradient(oklch(0.55 0.18 220 / 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.55 0.18 220 / 0.1) 1px, transparent 1px);
+  }
   h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: 0.04em; }
 }
 
@@ -133,13 +138,26 @@
       0 8px 32px oklch(0 0 0 / 0.4);
     border-radius: var(--radius);
   }
+  .light .glass {
+    background: linear-gradient(135deg, oklch(0.93 0.05 220 / 0.8), oklch(0.88 0.06 225 / 0.65));
+    border: 1px solid oklch(0.55 0.18 220 / 0.22);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.6),
+      0 8px 32px oklch(0.55 0.18 220 / 0.12);
+  }
   .neon-cyan {
     color: var(--cyan);
     text-shadow: 0 0 8px oklch(0.82 0.18 200 / 0.7), 0 0 24px oklch(0.82 0.18 200 / 0.4);
   }
+  .light .neon-cyan {
+    text-shadow: 0 0 6px oklch(0.55 0.18 220 / 0.4), 0 0 16px oklch(0.55 0.18 220 / 0.2);
+  }
   .neon-enemy {
     color: var(--enemy);
     text-shadow: 0 0 8px oklch(0.68 0.26 25 / 0.7), 0 0 24px oklch(0.68 0.26 25 / 0.4);
+  }
+  .light .neon-enemy {
+    text-shadow: 0 0 6px oklch(0.55 0.24 25 / 0.4), 0 0 16px oklch(0.55 0.24 25 / 0.2);
   }
   .glow-border-cyan { box-shadow: var(--shadow-glow-cyan); }
   .glow-border-enemy { box-shadow: var(--shadow-glow-enemy); }
@@ -171,6 +189,12 @@
     color: var(--foreground);
   }
   .input-cyber:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px oklch(0.82 0.18 200 / 0.2); }
+  .light .input-cyber {
+    background: oklch(0.96 0.03 220 / 0.9);
+    border: 1px solid oklch(0.55 0.18 220 / 0.35);
+    color: var(--foreground);
+  }
+  .light .input-cyber:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px oklch(0.55 0.18 220 / 0.18); }
   .scanline {
     background: linear-gradient(180deg, transparent 50%, oklch(0.82 0.18 200 / 0.04) 50%);
     background-size: 100% 4px;
