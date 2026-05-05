@@ -10,6 +10,7 @@ interface BoardProps {
   isEnemy: boolean;
   revealShips: boolean;
   onCellClick?: (x: number, y: number) => void;
+  onCellRightClick?: (x: number, y: number) => void;
   onCellHover?: (x: number, y: number | null) => void;
   hoverCell?: { x: number; y: number } | null;
   hoverPreview?: { cells: { x: number; y: number }[]; valid: boolean } | null;
