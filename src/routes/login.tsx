@@ -6,7 +6,7 @@ import { sfx } from "@/lib/sound";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Login · Cyber-Command" }] }),
+  head: () => ({ meta: [{ title: "Login · Battleship" }] }),
 });
 
 function LoginPage() {
