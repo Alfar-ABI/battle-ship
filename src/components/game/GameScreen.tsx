@@ -71,8 +71,8 @@ export function GameScreen() {
     else if (outcome === "sunk" && ship) {
       sfx.sunk();
       pushLog(`Enemy ${ship.name} destroyed!`);
-      setModal({ variant: "danger", title: "Ship Destroyed", body: `Enemy ${ship.name} obliterated.` });
-      setTimeout(() => setModal(null), 1400);
+      setModal({ variant: "sunk", title: "Ship Destroyed", body: `Enemy ${ship.name} obliterated.` });
+      setTimeout(() => setModal(null), 1800);
     }
     if (allSunk(board)) {
       setTimeout(() => {
@@ -84,6 +84,17 @@ export function GameScreen() {
       return;
     }
     if (outcome === "miss") setTurn("enemy");
+  }
+
+  function toggleEnemyMark(x: number, y: number) {
+    const k = cellKey(x, y);
+    if (enemy.shots[k]) return;
+    sfx.click();
+    setEnemy((b) => {
+      const marks = { ...(b.marks ?? {}) };
+      if (marks[k]) delete marks[k]; else marks[k] = true;
+      return { ...b, marks };
+    });
   }
 
   const [enemyTick, setEnemyTick] = useState(0);
