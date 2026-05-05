@@ -183,14 +183,18 @@ export function GameScreen() {
 
         <section className="glass relative overflow-hidden min-h-[300px]">
           <div className="absolute top-3 left-3 z-10 font-display text-xs uppercase tracking-widest neon-enemy">Enemy Waters</div>
+          <div className="absolute top-3 right-3 z-10 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Right-click to mark</div>
           <GameBoard3D
             board={enemy}
             isEnemy
             revealShips={phase === "over"}
             onCellClick={(x, y) => playerFire(x, y)}
+            onCellRightClick={(x, y) => toggleEnemyMark(x, y)}
           />
         </section>
       </div>
+
+      <SunkBanner shipName={sunk?.name ?? null} side={sunk?.side ?? "enemy"} />
 
       <CyberModal
         open={!!modal}
