@@ -67,6 +67,37 @@
   --shadow-glow-enemy: 0 0 40px oklch(0.68 0.26 25 / 0.5), 0 0 12px oklch(0.68 0.26 25 / 0.7);
 }
 
+.light {
+  --radius: 0.5rem;
+  --background: oklch(0.98 0.01 220);
+  --foreground: oklch(0.18 0.04 250);
+  --card: oklch(1 0 0 / 0.7);
+  --card-foreground: oklch(0.18 0.04 250);
+  --popover: oklch(1 0 0 / 0.95);
+  --popover-foreground: oklch(0.18 0.04 250);
+  --primary: oklch(0.55 0.18 220);
+  --primary-foreground: oklch(0.98 0.01 220);
+  --secondary: oklch(0.92 0.02 220);
+  --secondary-foreground: oklch(0.18 0.04 250);
+  --muted: oklch(0.94 0.01 220);
+  --muted-foreground: oklch(0.45 0.04 240);
+  --accent: oklch(0.55 0.18 220);
+  --accent-foreground: oklch(0.98 0.01 220);
+  --destructive: oklch(0.55 0.24 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.55 0.18 220 / 0.25);
+  --input: oklch(1 0 0 / 0.8);
+  --ring: oklch(0.55 0.18 220);
+
+  --cyan: oklch(0.5 0.18 220);
+  --enemy: oklch(0.55 0.24 25);
+  --grid: oklch(0.5 0.18 220 / 0.3);
+
+  --gradient-bg: radial-gradient(ellipse at 20% 0%, oklch(0.98 0.02 220) 0%, oklch(0.94 0.02 230) 60%, oklch(0.9 0.03 235) 100%);
+  --shadow-glow-cyan: 0 0 30px oklch(0.5 0.18 220 / 0.35), 0 0 8px oklch(0.5 0.18 220 / 0.5);
+  --shadow-glow-enemy: 0 0 30px oklch(0.55 0.24 25 / 0.35), 0 0 8px oklch(0.55 0.24 25 / 0.5);
+}
+
 @layer base {
   * { border-color: var(--color-border); }
   html, body, #root { height: 100%; }
