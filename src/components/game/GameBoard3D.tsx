@@ -221,8 +221,10 @@ function GridLines() {
   );
 }
 
-function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPreview }: BoardProps) {
+function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview }: BoardProps) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  const isLight = typeof document !== "undefined" && document.documentElement.classList.contains("light");
+  const bgColor = isLight ? "#e8eef5" : "#05070d";
   const previewSet = useMemo(() => {
     if (!hoverPreview) return null;
     return new Set(hoverPreview.cells.map((c) => cellKey(c.x, c.y)));
@@ -234,6 +236,7 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
       const k = cellKey(x, y);
       const shot = board.shots[k];
       const isHover = hover?.x === x && hover?.y === y;
+      const marked = !!board.marks?.[k];
       let preview: "none" | "valid" | "invalid" = "none";
       if (previewSet?.has(k)) preview = hoverPreview!.valid ? "valid" : "invalid";
       cells.push(
@@ -241,10 +244,12 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
           shot={shot}
           hovered={isHover}
           previewState={preview}
+          marked={marked}
           isEnemy={isEnemy}
           onEnter={() => { setHover({ x, y }); onCellHover?.(x, y); }}
           onLeave={() => { setHover(null); onCellHover?.(x, null); }}
           onClick={() => onCellClick?.(x, y)}
+          onRightClick={() => onCellRightClick?.(x, y)}
         />
       );
     }
@@ -252,10 +257,10 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellHover, hoverPre
 
   return (
     <>
-      <color attach="background" args={["#05070d"]} />
-      <fog attach="fog" args={["#05070d", 16, 34]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 10, 5]} intensity={0.8} />
+      <color attach="background" args={[bgColor]} />
+      <fog attach="fog" args={[bgColor, 16, 34]} />
+      <ambientLight intensity={isLight ? 0.7 : 0.35} />
+      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.1 : 0.8} />
       <pointLight position={[0, 4, 0]} intensity={0.6} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
 
       <Float speed={0.6} rotationIntensity={0.05} floatIntensity={0.1}>
