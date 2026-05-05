@@ -31,6 +31,17 @@ export function PlacementBoard({ onConfirm }: Props) {
     return { cells, valid };
   }, [hover, selectedDef, orientation, ships]);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "r" || e.key === "R") {
+        sfx.click();
+        setOrientation((o) => (o === "h" ? "v" : "h"));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   function placeAt(x: number, y: number) {
     if (!selectedDef) return;
     const candidate: PlacedShip = { ...selectedDef, x, y, orientation, hits: 0 };
