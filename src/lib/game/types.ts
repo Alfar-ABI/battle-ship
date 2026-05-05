@@ -26,6 +26,7 @@ export type CellState = "empty" | "miss" | "hit" | "sunk";
 export interface BoardState {
   ships: PlacedShip[];
   shots: Record<string, "miss" | "hit">; // key "x,y"
+  marks?: Record<string, boolean>; // user "no-ship" guess marks
 }
 
 export const cellKey = (x: number, y: number) => `${x},${y}`;
