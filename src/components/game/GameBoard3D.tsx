@@ -34,9 +34,9 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
   const wid = CELL * 0.5;
   const rotY = ship.orientation === "h" ? 0 : Math.PI / 2;
 
-  const hullColor = sunk ? "#3a3a3a" : color;
+  const hullColor = sunk ? "#5a5858" : color;
   const deckColor = "#0b1220";
-  const accentEmissive = sunk ? 0.02 : 0.75;
+  const accentEmissive = sunk ? 0.22 : 0.75;
 
   // Number of turrets/funnels scales with size
   const turretCount = Math.max(1, ship.size - 2);
@@ -103,7 +103,7 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
       {/* Glow waterline */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[len * 0.95, wid * 1.15]} />
-        <meshBasicMaterial color={color} transparent opacity={sunk ? 0.05 : 0.18} />
+        <meshBasicMaterial color={color} transparent opacity={sunk ? 0.12 : 0.18} />
       </mesh>
     </group>
   );
