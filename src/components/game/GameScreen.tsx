@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import { CyberModal } from "./CyberModal";
+import { SunkBanner } from "./SunkBanner";
 import { PlacementBoard } from "./PlacementBoard";
 import {
   type BoardState, type PlacedShip, autoPlace, allSunk, fireAt, cellKey,
