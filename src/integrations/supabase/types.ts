@@ -19,60 +19,72 @@ export type Database = {
           created_at: string
           current_turn: string
           ended_at: string | null
+          fleet_config: Json | null
           game_mode: string
           guest_nickname: string | null
           guest_player_id: string | null
           guest_ready: boolean
           guest_ships: Json | null
           guest_shots: Json
+          guest_time_left: number | null
           host_nickname: string
           host_player_id: string
           host_ready: boolean
           host_ships: Json | null
           host_shots: Json
+          host_time_left: number | null
           id: string
           started_at: string | null
           status: string
+          turn_started_at: string | null
           winner: string | null
         }
         Insert: {
           created_at?: string
           current_turn?: string
           ended_at?: string | null
+          fleet_config?: Json | null
           game_mode?: string
           guest_nickname?: string | null
           guest_player_id?: string | null
           guest_ready?: boolean
           guest_ships?: Json | null
           guest_shots?: Json
+          guest_time_left?: number | null
           host_nickname?: string
           host_player_id: string
           host_ready?: boolean
           host_ships?: Json | null
           host_shots?: Json
+          host_time_left?: number | null
           id?: string
           started_at?: string | null
           status?: string
+          turn_started_at?: string | null
           winner?: string | null
         }
         Update: {
           created_at?: string
           current_turn?: string
           ended_at?: string | null
+          fleet_config?: Json | null
           game_mode?: string
           guest_nickname?: string | null
           guest_player_id?: string | null
           guest_ready?: boolean
           guest_ships?: Json | null
           guest_shots?: Json
+          guest_time_left?: number | null
           host_nickname?: string
           host_player_id?: string
           host_ready?: boolean
           host_ships?: Json | null
           host_shots?: Json
+          host_time_left?: number | null
           id?: string
           started_at?: string | null
           status?: string
+          turn_started_at?: string | null
           winner?: string | null
         }
         Relationships: []
