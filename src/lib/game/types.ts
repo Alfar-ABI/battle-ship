@@ -5,8 +5,9 @@ export type ShipId = string;
 export type Orientation = "h" | "v";
 
 export interface ShipDef { id: ShipId; name: string; size: number }
+export interface ShipType { id: ShipKind; name: string; size: number }
 
-export const SHIP_TYPES: ShipDef[] = [
+export const SHIP_TYPES: ShipType[] = [
   { id: "carrier", name: "Carrier", size: 5 },
   { id: "battleship", name: "Battleship", size: 4 },
   { id: "destroyer", name: "Destroyer", size: 3 },
@@ -24,17 +25,16 @@ export const DEFAULT_FLEET: FleetConfig = {
 export function expandFleet(config: FleetConfig = DEFAULT_FLEET): ShipDef[] {
   const out: ShipDef[] = [];
   for (const t of SHIP_TYPES) {
-    const kind = t.id as unknown as ShipKind;
-    const n = config[kind] ?? 0;
+    const n = config[t.id] ?? 0;
     for (let i = 0; i < n; i++) {
-      out.push({ id: (n > 1 ? `${t.id}_${i}` : t.id), name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
+      out.push({ id: n > 1 ? `${t.id}_${i}` : t.id, name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
     }
   }
   return out;
 }
 
 export function fleetTotal(config: FleetConfig): number {
-  return SHIP_TYPES.reduce((s, t) => s + (config[t.id as unknown as ShipKind] ?? 0), 0);
+  return SHIP_TYPES.reduce((s, t) => s + (config[t.id] ?? 0), 0);
 }
 
 /** Back-compat default fleet (one of each). */
