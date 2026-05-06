@@ -4,11 +4,12 @@ import { CyberModal } from "./CyberModal";
 import { SunkBanner } from "./SunkBanner";
 import { PlacementBoard } from "./PlacementBoard";
 import { sfx } from "@/lib/sound";
-import { cellKey } from "@/lib/game/types";
+import { cellKey, expandFleet, DEFAULT_FLEET } from "@/lib/game/types";
 import {
   type GameSession, type PlayerRole,
   getBoardForRole, getOpponentBoard, countSunk,
-  getRemainingSeconds, getGameDuration, fireShot, endByTimer, submitShips,
+  getActiveRemaining, getStoredRemaining, isTimedMode,
+  fireShot, endByTimeout, submitShips,
 } from "@/lib/multiplayer";
 
 interface Props {
