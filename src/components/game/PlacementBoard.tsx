@@ -1,23 +1,25 @@
 import { useMemo, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import {
-  BOARD_SIZE, SHIP_DEFS, type PlacedShip, type Orientation,
+  BOARD_SIZE, SHIP_DEFS, type ShipDef, type PlacedShip, type Orientation,
   autoPlace, isValidPlacement, shipCells, cellKey,
 } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 
 interface Props {
   onConfirm: (ships: PlacedShip[]) => void;
+  fleet?: ShipDef[];
 }
 
-export function PlacementBoard({ onConfirm }: Props) {
+export function PlacementBoard({ onConfirm, fleet }: Props) {
+  const defs = fleet && fleet.length ? fleet : SHIP_DEFS;
   const [ships, setShips] = useState<PlacedShip[]>([]);
-  const [selectedId, setSelectedId] = useState<string>(SHIP_DEFS[0].id);
+  const [selectedId, setSelectedId] = useState<string>(defs[0].id);
   const [orientation, setOrientation] = useState<Orientation>("h");
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
 
-  const remaining = SHIP_DEFS.filter((d) => !ships.find((s) => s.id === d.id));
-  const selectedDef = SHIP_DEFS.find((d) => d.id === selectedId) ?? remaining[0];
+  const remaining = defs.filter((d) => !ships.find((s) => s.id === d.id));
+  const selectedDef = defs.find((d) => d.id === selectedId) ?? remaining[0];
 
   const board = useMemo(() => ({ ships, shots: {} }), [ships]);
 
