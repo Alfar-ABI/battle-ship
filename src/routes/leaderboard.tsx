@@ -40,7 +40,7 @@ function LeaderboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl uppercase tracking-widest neon-cyan">Global Ranklist</h1>
-            <p className="text-xs text-muted-foreground mt-1">vs Player +100 · Bot easy/medium/hard +25/50/100</p>
+            <p className="text-xs text-muted-foreground mt-1">Bot games only · easy +25 · medium +50 · hard +100</p>
           </div>
           <a href="/play" className="text-xs text-muted-foreground hover:text-foreground transition">← Back</a>
         </div>

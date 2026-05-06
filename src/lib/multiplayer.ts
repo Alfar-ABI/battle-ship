@@ -152,6 +152,7 @@ export async function submitShips(sessionId: string, role: PlayerRole, ships: Pl
     const now = new Date().toISOString();
     await supabase.from("game_sessions").update({
       status: "playing",
+      current_turn: "host" as PlayerRole,
       started_at: now,
       turn_started_at: now,
     } as never).eq("id", sessionId);
@@ -208,15 +209,6 @@ export async function fireShot(
 
   await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
 
-  if (isGameOver) {
-    const winnerId = role === "host" ? session.host_player_id : session.guest_player_id;
-    const winnerNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
-    const loserId = role === "host" ? session.guest_player_id : session.host_player_id;
-    const loserNick = role === "host" ? (session.guest_nickname ?? "Commander") : session.host_nickname;
-    if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win", 100);
-    if (loserId) void upsertLeaderboard(loserId, loserNick, "loss", 0);
-  }
-
   return {
     outcome,
     shipName: ship?.name,
@@ -231,14 +223,6 @@ export async function endByTimeout(session: GameSession, loser: PlayerRole): Pro
     .from("game_sessions")
     .update({ status: "finished", winner, ended_at: new Date().toISOString() } as never)
     .eq("id", session.id);
-
-  const winnerId = winner === "host" ? session.host_player_id : session.guest_player_id;
-  const winnerNick = winner === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
-  const loserId = loser === "host" ? session.host_player_id : session.guest_player_id;
-  const loserNick = loser === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
-  if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win", 100);
-  if (loserId) void upsertLeaderboard(loserId, loserNick, "loss", 0);
-
   return winner;
 }
 
@@ -280,10 +264,21 @@ export function useGameSession(sessionId: string | null) {
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+  const refetch = useRef(async () => {
+    if (!sessionId) return;
+    const s = await fetchSession(sessionId);
+    if (s) setSession(s);
+  });
+
   useEffect(() => {
     if (!sessionId) return;
     setLoading(true);
     fetchSession(sessionId).then((s) => { setSession(s); setLoading(false); });
+
+    refetch.current = async () => {
+      const s = await fetchSession(sessionId);
+      if (s) setSession(s);
+    };
 
     const channel = supabase
       .channel(`game_session:${sessionId}`)
@@ -295,10 +290,17 @@ export function useGameSession(sessionId: string | null) {
       .subscribe();
 
     channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
+
+    // Polling fallback in case Realtime misses updates
+    const poll = setInterval(() => { void refetch.current(); }, 3000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
   }, [sessionId]);
 
-  return { session, loading };
+  return { session, loading, refetch: refetch.current };
 }
 
 export function getBoardForRole(session: GameSession, role: PlayerRole): BoardState {
