@@ -207,16 +207,15 @@ export async function endByTimeout(session: GameSession, loser: PlayerRole): Pro
   return winner;
 }
 
-export async function upsertLeaderboard(playerId: string, nickname: string, result: "win" | "loss", score = 0) {
+export async function upsertLeaderboard(playerId: string, nickname: string, result: "win" | "loss") {
   const { data } = await supabase.from("leaderboard").select().eq("player_id", playerId).maybeSingle();
-  const cur = (data as any) ?? { wins: 0, losses: 0, games: 0, score: 0 };
+  const cur = (data as any) ?? { wins: 0, losses: 0, games: 0 };
   await supabase.from("leaderboard").upsert({
     player_id: playerId,
     nickname,
     wins: (cur.wins ?? 0) + (result === "win" ? 1 : 0),
     losses: (cur.losses ?? 0) + (result === "loss" ? 1 : 0),
     games: (cur.games ?? 0) + 1,
-    score: (cur.score ?? 0) + score,
     updated_at: new Date().toISOString(),
   } as never, { onConflict: "player_id" });
 }

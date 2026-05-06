@@ -65,10 +65,9 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
       });
     }
     if (result === "win") {
-      const score = difficulty === "easy" ? 25 : difficulty === "medium" ? 50 : 100;
       const playerId = getOrCreatePlayerId();
       const nick = getSavedNickname() || (user?.email?.split("@")[0] ?? "Commander");
-      void upsertLeaderboard(playerId, nick, "win", score);
+      void upsertLeaderboard(playerId, nick, "win");
     }
   }
 
