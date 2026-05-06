@@ -25,6 +25,10 @@ export interface GameSession {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
+  fleet_config: FleetConfig | null;
+  host_time_left: number | null;
+  guest_time_left: number | null;
+  turn_started_at: string | null;
 }
 
 const STORAGE_KEY = "mp_player_id";
