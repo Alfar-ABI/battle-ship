@@ -26,31 +26,38 @@ function formatTime(secs: number): string {
 export function MultiplayerScreen({ session, role }: Props) {
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
-  const [timeLeft, setTimeLeft] = useState(getGameDuration(session.game_mode));
+  const [myClock, setMyClock] = useState(getStoredRemaining(session, role));
+  const [opClock, setOpClock] = useState(getStoredRemaining(session, role === "host" ? "guest" : "host"));
+  const [marks, setMarks] = useState<Record<string, boolean>>({});
   const timerEndedRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
   const opNick = role === "host" ? (session.guest_nickname ?? "Opponent") : session.host_nickname;
+  const opRole: PlayerRole = role === "host" ? "guest" : "host";
 
   function pushLog(msg: string) {
     setLog((l) => [msg, ...l].slice(0, 8));
   }
 
-  // Timer countdown when game is playing
+  // Per-player timer countdown
   useEffect(() => {
-    if (session.status !== "playing" || !session.started_at) return;
+    if (session.status !== "playing" || !isTimedMode(session.game_mode)) return;
     timerEndedRef.current = false;
     const tick = setInterval(() => {
-      const remaining = getRemainingSeconds(session);
-      setTimeLeft(remaining);
-      if (remaining <= 0 && !timerEndedRef.current) {
+      const me = getStoredRemaining(session, role);
+      const op = getStoredRemaining(session, opRole);
+      setMyClock(me);
+      setOpClock(op);
+      const activeRole = session.current_turn;
+      const activeRemaining = activeRole === role ? me : op;
+      if (activeRemaining <= 0 && !timerEndedRef.current) {
         timerEndedRef.current = true;
         clearInterval(tick);
-        endByTimer(session);
+        endByTimeout(session, activeRole);
       }
-    }, 500);
+    }, 250);
     return () => clearInterval(tick);
-  }, [session.status, session.started_at, session.id]);
+  }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
 
   // Update log when turn changes
   useEffect(() => {
