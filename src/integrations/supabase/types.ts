@@ -31,6 +31,11 @@ export type Database = {
           guest_shots: Json
           host_ready: boolean
           guest_ready: boolean
+          fleet_config: Json | null
+          grid_size: number
+          host_time_left_ms: number | null
+          guest_time_left_ms: number | null
+          turn_started_at: string | null
           started_at: string | null
           ended_at: string | null
           created_at: string
@@ -51,6 +56,11 @@ export type Database = {
           guest_shots?: Json
           host_ready?: boolean
           guest_ready?: boolean
+          fleet_config?: Json | null
+          grid_size?: number
+          host_time_left_ms?: number | null
+          guest_time_left_ms?: number | null
+          turn_started_at?: string | null
           started_at?: string | null
           ended_at?: string | null
           created_at?: string
@@ -71,9 +81,101 @@ export type Database = {
           guest_shots?: Json
           host_ready?: boolean
           guest_ready?: boolean
+          fleet_config?: Json | null
+          grid_size?: number
+          host_time_left_ms?: number | null
+          guest_time_left_ms?: number | null
+          turn_started_at?: string | null
           started_at?: string | null
           ended_at?: string | null
           created_at?: string
+        }
+        Relationships: []
+      }
+      mp_rooms: {
+        Row: {
+          id: string
+          created_at: string
+          host_player_id: string
+          status: string
+          game_mode: string
+          grid_size: number
+          fleet_config: Json | null
+          max_players: number
+          players: Json
+          ships: Json
+          shots: Json
+          time_left: Json
+          turn_started_at: string | null
+          current_turn: string | null
+          winner: string | null
+          started_at: string | null
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          host_player_id: string
+          status?: string
+          game_mode?: string
+          grid_size?: number
+          fleet_config?: Json | null
+          max_players?: number
+          players?: Json
+          ships?: Json
+          shots?: Json
+          time_left?: Json
+          turn_started_at?: string | null
+          current_turn?: string | null
+          winner?: string | null
+          started_at?: string | null
+          ended_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          host_player_id?: string
+          status?: string
+          game_mode?: string
+          grid_size?: number
+          fleet_config?: Json | null
+          max_players?: number
+          players?: Json
+          ships?: Json
+          shots?: Json
+          time_left?: Json
+          turn_started_at?: string | null
+          current_turn?: string | null
+          winner?: string | null
+          started_at?: string | null
+          ended_at?: string | null
+        }
+        Relationships: []
+      }
+      leaderboard: {
+        Row: {
+          player_id: string
+          nickname: string
+          wins: number
+          losses: number
+          games: number
+          updated_at: string
+        }
+        Insert: {
+          player_id: string
+          nickname: string
+          wins?: number
+          losses?: number
+          games?: number
+          updated_at?: string
+        }
+        Update: {
+          player_id?: string
+          nickname?: string
+          wins?: number
+          losses?: number
+          games?: number
+          updated_at?: string
         }
         Relationships: []
       }

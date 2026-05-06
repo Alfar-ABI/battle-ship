@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { allSunk, cellKey, fireAt, shipCells, type BoardState, type PlacedShip } from "@/lib/game/types";
+import {
+  allSunk, cellKey, fireAt, shipCells, DEFAULT_FLEET,
+  type BoardState, type PlacedShip, type FleetConfig,
+} from "@/lib/game/types";
 
-export type GameMode = "4min" | "10min";
+export type GameMode = "4min" | "10min" | "infinite";
 export type SessionStatus = "waiting" | "placing" | "playing" | "finished";
 export type PlayerRole = "host" | "guest";
 
@@ -22,6 +25,11 @@ export interface GameSession {
   guest_shots: Record<string, "miss" | "hit">;
   host_ready: boolean;
   guest_ready: boolean;
+  fleet_config: FleetConfig | null;
+  grid_size: number;
+  host_time_left_ms: number | null;
+  guest_time_left_ms: number | null;
+  turn_started_at: string | null;
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
@@ -45,19 +53,48 @@ export function saveNickname(name: string) {
   if (typeof localStorage !== "undefined") localStorage.setItem(NICKNAME_KEY, name);
 }
 
+/** Returns per-player time in ms, or null for infinite mode */
+export function getGameDurationMs(mode: GameMode): number | null {
+  if (mode === "infinite") return null;
+  return mode === "4min" ? 4 * 60 * 1000 : 10 * 60 * 1000;
+}
+
+/** @deprecated Use getGameDurationMs */
 export function getGameDuration(mode: GameMode): number {
+  if (mode === "infinite") return Infinity;
   return mode === "4min" ? 240 : 600;
 }
 
-export function getRemainingSeconds(session: GameSession): number {
-  if (!session.started_at) return getGameDuration(session.game_mode);
-  const elapsed = (Date.now() - new Date(session.started_at).getTime()) / 1000;
-  return Math.max(0, getGameDuration(session.game_mode) - elapsed);
+/**
+ * Chess-clock: returns remaining seconds for a player.
+ * Active player's clock ticks; inactive player's clock is frozen.
+ * Returns null for infinite mode.
+ */
+export function getChessClockRemaining(session: GameSession, role: PlayerRole): number | null {
+  const durationMs = getGameDurationMs(session.game_mode);
+  if (durationMs === null) return null;
+
+  const storedMs = role === "host" ? session.host_time_left_ms : session.guest_time_left_ms;
+  if (storedMs === null || storedMs === undefined) return durationMs / 1000;
+
+  // Only tick if it's this player's turn and game is playing
+  if (session.status !== "playing" || session.current_turn !== role || !session.turn_started_at) {
+    return storedMs / 1000;
+  }
+
+  const elapsed = Date.now() - new Date(session.turn_started_at).getTime();
+  return Math.max(0, (storedMs - elapsed) / 1000);
 }
 
-export async function createSession(mode: GameMode, nickname: string): Promise<GameSession | null> {
+export async function createSession(
+  mode: GameMode,
+  nickname: string,
+  fleetConfig?: FleetConfig,
+  gridSize = 10,
+): Promise<GameSession | null> {
   const playerId = getOrCreatePlayerId();
   saveNickname(nickname);
+  const durationMs = getGameDurationMs(mode);
   const { data, error } = await supabase
     .from("game_sessions")
     .insert({
@@ -65,6 +102,10 @@ export async function createSession(mode: GameMode, nickname: string): Promise<G
       host_nickname: nickname || "Commander",
       game_mode: mode,
       status: "waiting",
+      fleet_config: fleetConfig ?? null,
+      grid_size: gridSize,
+      host_time_left_ms: durationMs,
+      guest_time_left_ms: durationMs,
     })
     .select()
     .single();
@@ -72,7 +113,10 @@ export async function createSession(mode: GameMode, nickname: string): Promise<G
   return normalizeSession(data);
 }
 
-export async function joinSession(sessionId: string, nickname: string): Promise<{ session: GameSession | null; role: PlayerRole | null; error?: string }> {
+export async function joinSession(
+  sessionId: string,
+  nickname: string,
+): Promise<{ session: GameSession | null; role: PlayerRole | null; error?: string }> {
   const playerId = getOrCreatePlayerId();
   saveNickname(nickname);
 
@@ -111,48 +155,93 @@ export async function submitShips(sessionId: string, role: PlayerRole, ships: Pl
   const field = role === "host" ? "host_ships" : "guest_ships";
   const readyField = role === "host" ? "host_ready" : "guest_ready";
   await supabase.from("game_sessions").update({ [field]: ships, [readyField]: true }).eq("id", sessionId);
-  // Check if both ready → start game
   const s = await fetchSession(sessionId);
   if (!s) return;
   const bothReady = (role === "host" ? true : s.host_ready) && (role === "guest" ? true : s.guest_ready);
   if (bothReady && s.status === "placing") {
-    await supabase.from("game_sessions").update({ status: "playing", started_at: new Date().toISOString() }).eq("id", sessionId);
+    const now = new Date().toISOString();
+    await supabase.from("game_sessions").update({
+      status: "playing",
+      started_at: now,
+      turn_started_at: now,
+    }).eq("id", sessionId);
   }
 }
 
-export type ShotResult = { outcome: "miss" | "hit" | "sunk"; shipName?: string; gameOver?: boolean; winner?: PlayerRole | "draw" };
+export type ShotResult = {
+  outcome: "miss" | "hit" | "sunk";
+  shipName?: string;
+  gameOver?: boolean;
+  winner?: PlayerRole | "draw";
+  timedOut?: boolean;
+};
 
-export async function fireShot(session: GameSession, role: PlayerRole, x: number, y: number): Promise<ShotResult | null> {
+export async function fireShot(
+  session: GameSession,
+  role: PlayerRole,
+  x: number,
+  y: number,
+): Promise<ShotResult | null> {
   if (session.status !== "playing") return null;
   if (session.current_turn !== role) return null;
 
-  const opponentShips = (role === "host" ? session.guest_ships : session.host_ships) ?? [];
-  const myShots = role === "host" ? { ...session.host_shots } : { ...session.guest_shots };
   const k = cellKey(x, y);
+  const myShots = role === "host" ? { ...session.host_shots } : { ...session.guest_shots };
   if (myShots[k]) return null;
 
+  const opponentShips = (role === "host" ? session.guest_ships : session.host_ships) ?? [];
   const opponentBoard: BoardState = { ships: opponentShips.map((s) => ({ ...s })), shots: myShots };
   const { board: newBoard, outcome, ship } = fireAt(opponentBoard, x, y);
 
   const shotsField = role === "host" ? "host_shots" : "guest_shots";
   const shipsField = role === "host" ? "guest_ships" : "host_ships";
+  const timeField = role === "host" ? "host_time_left_ms" : "guest_time_left_ms";
+
+  // Chess clock: reduce this player's time
+  const storedMs = role === "host" ? session.host_time_left_ms : session.guest_time_left_ms;
+  let newTimeMs: number | null = storedMs;
+  if (storedMs !== null && session.turn_started_at) {
+    const elapsed = Date.now() - new Date(session.turn_started_at).getTime();
+    newTimeMs = Math.max(0, storedMs - elapsed);
+  }
 
   const isGameOver = allSunk(newBoard);
+  // On miss, pass turn; on hit/sunk, keep turn
   const nextTurn: PlayerRole = outcome === "miss" ? (role === "host" ? "guest" : "host") : role;
 
+  const now = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     [shotsField]: newBoard.shots,
     [shipsField]: newBoard.ships,
     current_turn: nextTurn,
+    turn_started_at: now,
+    [timeField]: newTimeMs,
   };
 
   if (isGameOver) {
     updatePayload.status = "finished";
     updatePayload.winner = role;
-    updatePayload.ended_at = new Date().toISOString();
+    updatePayload.ended_at = now;
+  } else if (newTimeMs !== null && newTimeMs <= 0) {
+    // This player ran out of time → they lose
+    const opponent: PlayerRole = role === "host" ? "guest" : "host";
+    updatePayload.status = "finished";
+    updatePayload.winner = opponent;
+    updatePayload.ended_at = now;
   }
 
   await supabase.from("game_sessions").update(updatePayload).eq("id", session.id);
+
+  // Update leaderboard if game ended
+  if (updatePayload.status === "finished" && updatePayload.winner && updatePayload.winner !== "draw") {
+    const winnerRole = updatePayload.winner as PlayerRole;
+    const winnerId = winnerRole === "host" ? session.host_player_id : session.guest_player_id;
+    const winnerNick = winnerRole === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
+    const loserId = winnerRole === "host" ? session.guest_player_id : session.host_player_id;
+    const loserNick = winnerRole === "host" ? (session.guest_nickname ?? "Commander") : session.host_nickname;
+    if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win");
+    if (loserId) void upsertLeaderboard(loserId, loserNick, "loss");
+  }
 
   return {
     outcome,
@@ -166,11 +255,43 @@ export async function endByTimer(session: GameSession): Promise<PlayerRole | "dr
   const hostSunk = (session.guest_ships ?? []).filter((s) => s.hits >= s.size).length;
   const guestSunk = (session.host_ships ?? []).filter((s) => s.hits >= s.size).length;
   const winner: PlayerRole | "draw" = hostSunk > guestSunk ? "host" : guestSunk > hostSunk ? "guest" : "draw";
+  const now = new Date().toISOString();
   await supabase
     .from("game_sessions")
-    .update({ status: "finished", winner, ended_at: new Date().toISOString() })
+    .update({ status: "finished", winner, ended_at: now })
     .eq("id", session.id);
+
+  if (winner !== "draw") {
+    const winnerId = winner === "host" ? session.host_player_id : session.guest_player_id;
+    const winnerNick = winner === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
+    const loserId = winner === "host" ? session.guest_player_id : session.host_player_id;
+    const loserNick = winner === "host" ? (session.guest_nickname ?? "Commander") : session.host_nickname;
+    if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win");
+    if (loserId) void upsertLeaderboard(loserId, loserNick, "loss");
+  }
+
   return winner;
+}
+
+async function upsertLeaderboard(playerId: string, nickname: string, result: "win" | "loss") {
+  const { data } = await supabase.from("leaderboard").select().eq("player_id", playerId).single();
+  if (data) {
+    await supabase.from("leaderboard").update({
+      nickname,
+      wins: (data.wins ?? 0) + (result === "win" ? 1 : 0),
+      losses: (data.losses ?? 0) + (result === "loss" ? 1 : 0),
+      games: (data.games ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    }).eq("player_id", playerId);
+  } else {
+    await supabase.from("leaderboard").insert({
+      player_id: playerId,
+      nickname,
+      wins: result === "win" ? 1 : 0,
+      losses: result === "loss" ? 1 : 0,
+      games: 1,
+    });
+  }
 }
 
 function normalizeSession(raw: Record<string, unknown>): GameSession {
@@ -178,10 +299,13 @@ function normalizeSession(raw: Record<string, unknown>): GameSession {
     ...raw,
     host_shots: (raw.host_shots as Record<string, "miss" | "hit">) ?? {},
     guest_shots: (raw.guest_shots as Record<string, "miss" | "hit">) ?? {},
+    grid_size: (raw.grid_size as number) ?? 10,
+    fleet_config: (raw.fleet_config as FleetConfig | null) ?? null,
+    host_time_left_ms: raw.host_time_left_ms as number | null ?? null,
+    guest_time_left_ms: raw.guest_time_left_ms as number | null ?? null,
+    turn_started_at: raw.turn_started_at as string | null ?? null,
   } as GameSession;
 }
-
-// ── Hook ────────────────────────────────────────────────────────────────────
 
 export function useGameSession(sessionId: string | null) {
   const [session, setSession] = useState<GameSession | null>(null);
@@ -196,7 +320,12 @@ export function useGameSession(sessionId: string | null) {
 
     const channel = supabase
       .channel(`game_session:${sessionId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_sessions", filter: `id=eq.${sessionId}` }, (payload) => {
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "game_sessions",
+        filter: `id=eq.${sessionId}`,
+      }, (payload) => {
         setSession(normalizeSession(payload.new as Record<string, unknown>));
       })
       .subscribe();
@@ -220,12 +349,11 @@ export function getOpponentBoard(session: GameSession, role: PlayerRole): BoardS
   return { ships: opShips, shots: myShots };
 }
 
-export function countSunk(session: GameSession, role: PlayerRole): number {
-  const ships = role === "host" ? session.guest_ships : session.host_ships;
+export function countSunk(session: GameSession, attackerRole: PlayerRole): number {
+  const ships = attackerRole === "host" ? session.guest_ships : session.host_ships;
   return (ships ?? []).filter((s) => s.hits >= s.size).length;
 }
 
-/** Returns cells belonging to sunk ships (for filtering out hit dots). */
 export function sunkCells(ships: PlacedShip[]): Set<string> {
   const out = new Set<string>();
   for (const ship of ships) {
@@ -235,3 +363,7 @@ export function sunkCells(ships: PlacedShip[]): Set<string> {
   }
   return out;
 }
+
+// Re-export for backward compat
+export { DEFAULT_FLEET };
+export type { FleetConfig };

@@ -4,11 +4,11 @@ import { CyberModal } from "./CyberModal";
 import { SunkBanner } from "./SunkBanner";
 import { PlacementBoard } from "./PlacementBoard";
 import { sfx } from "@/lib/sound";
-import { cellKey } from "@/lib/game/types";
+import { cellKey, expandFleet, DEFAULT_FLEET } from "@/lib/game/types";
 import {
   type GameSession, type PlayerRole,
   getBoardForRole, getOpponentBoard, countSunk,
-  getRemainingSeconds, getGameDuration, fireShot, endByTimer, submitShips,
+  getChessClockRemaining, fireShot, endByTimer, submitShips,
 } from "@/lib/multiplayer";
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
 }
 
 function formatTime(secs: number): string {
+  if (!isFinite(secs)) return "∞";
   const m = Math.floor(secs / 60).toString().padStart(2, "0");
   const s = Math.floor(secs % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
@@ -25,31 +26,51 @@ function formatTime(secs: number): string {
 export function MultiplayerScreen({ session, role }: Props) {
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
-  const [timeLeft, setTimeLeft] = useState(getGameDuration(session.game_mode));
+  const [marks, setMarks] = useState<Record<string, boolean>>({});
+  const [myTimeLeft, setMyTimeLeft] = useState<number | null>(null);
+  const [opTimeLeft, setOpTimeLeft] = useState<number | null>(null);
   const timerEndedRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
   const opNick = role === "host" ? (session.guest_nickname ?? "Opponent") : session.host_nickname;
+  const isTimed = session.game_mode !== "infinite";
+  const fleet = expandFleet(session.fleet_config ?? DEFAULT_FLEET);
+  const gridSize = session.grid_size ?? 10;
+  const totalShips = fleet.length;
 
   function pushLog(msg: string) {
     setLog((l) => [msg, ...l].slice(0, 8));
   }
 
-  // Timer countdown when game is playing
+  // Per-turn chess clock: only active player's clock ticks
   useEffect(() => {
-    if (session.status !== "playing" || !session.started_at) return;
+    if (session.status !== "playing" || !isTimed) {
+      setMyTimeLeft(null);
+      setOpTimeLeft(null);
+      return;
+    }
     timerEndedRef.current = false;
+
     const tick = setInterval(() => {
-      const remaining = getRemainingSeconds(session);
-      setTimeLeft(remaining);
-      if (remaining <= 0 && !timerEndedRef.current) {
+      const myR = getChessClockRemaining(session, role);
+      const opR = getChessClockRemaining(session, role === "host" ? "guest" : "host");
+      setMyTimeLeft(myR);
+      setOpTimeLeft(opR);
+
+      // Detect timeout for active player
+      if (session.current_turn === role && myR !== null && myR <= 0 && !timerEndedRef.current) {
         timerEndedRef.current = true;
         clearInterval(tick);
         endByTimer(session);
       }
-    }, 500);
+    }, 250);
+
+    // Set initial values immediately
+    setMyTimeLeft(getChessClockRemaining(session, role));
+    setOpTimeLeft(getChessClockRemaining(session, role === "host" ? "guest" : "host"));
+
     return () => clearInterval(tick);
-  }, [session.status, session.started_at, session.id]);
+  }, [session.status, session.current_turn, session.turn_started_at, session.game_mode]);
 
   // Update log when turn changes
   useEffect(() => {
@@ -58,7 +79,7 @@ export function MultiplayerScreen({ session, role }: Props) {
     pushLog(isMyTurn ? "Your turn — fire!" : `${opNick}'s turn…`);
   }, [session.current_turn, session.status]);
 
-  // Banner when both are in placing phase
+  // Placement phase
   if (session.status === "waiting" || session.status === "placing") {
     const myReady = role === "host" ? session.host_ready : session.guest_ready;
     const opReady = role === "host" ? session.guest_ready : session.host_ready;
@@ -72,6 +93,11 @@ export function MultiplayerScreen({ session, role }: Props) {
             <p className="text-sm text-muted-foreground">Share this link with your friend:</p>
             <div className="input-cyber text-xs break-all select-all cursor-text">
               {typeof window !== "undefined" ? window.location.href : ""}
+            </div>
+            <div className="flex gap-3 justify-center flex-wrap text-xs text-muted-foreground">
+              <span>Grid: {gridSize}×{gridSize}</span>
+              <span>Mode: {session.game_mode === "infinite" ? "∞ Unlimited" : session.game_mode}</span>
+              <span>Ships: {totalShips}</span>
             </div>
             <button
               className="btn-cyber text-xs"
@@ -108,10 +134,14 @@ export function MultiplayerScreen({ session, role }: Props) {
         <div className="mb-2 text-xs text-muted-foreground font-display uppercase tracking-widest">
           {opNick} has joined — place your fleet
         </div>
-        <PlacementBoard onConfirm={async (ships) => {
-          sfx.click();
-          await submitShips(session.id, role, ships);
-        }} />
+        <PlacementBoard
+          fleet={session.fleet_config ?? DEFAULT_FLEET}
+          boardSize={gridSize}
+          onConfirm={async (ships) => {
+            sfx.click();
+            await submitShips(session.id, role, ships);
+          }}
+        />
       </div>
     );
   }
@@ -119,7 +149,8 @@ export function MultiplayerScreen({ session, role }: Props) {
   // ── Playing / Finished ───────────────────────────────────────────────────
 
   const myBoard = getBoardForRole(session, role);
-  const opBoard = getOpponentBoard(session, role);
+  const opBoardRaw = getOpponentBoard(session, role);
+  const opBoard = { ...opBoardRaw, marks };
   const isMyTurn = session.current_turn === role;
   const mySunk = countSunk(session, role);
   const opSunkByMe = countSunk(session, role === "host" ? "guest" : "host");
@@ -133,8 +164,9 @@ export function MultiplayerScreen({ session, role }: Props) {
     const result = await fireShot(session, role, x, y);
     if (!result) return;
 
-    if (result.outcome === "miss") { sfx.miss(); pushLog(`Miss at ${String.fromCharCode(65 + x)}${y + 1}`); }
-    else if (result.outcome === "hit") { sfx.hit(); pushLog(`Hit at ${String.fromCharCode(65 + x)}${y + 1}`); }
+    const coord = `${String.fromCharCode(65 + x)}${y + 1}`;
+    if (result.outcome === "miss") { sfx.miss(); pushLog(`Miss at ${coord}`); }
+    else if (result.outcome === "hit") { sfx.hit(); pushLog(`Hit at ${coord}`); }
     else if (result.outcome === "sunk" && result.shipName) {
       sfx.sunk();
       pushLog(`Enemy ${result.shipName} destroyed!`);
@@ -144,7 +176,16 @@ export function MultiplayerScreen({ session, role }: Props) {
   }
 
   function toggleMark(x: number, y: number) {
+    const k = cellKey(x, y);
+    const myShots = role === "host" ? session.host_shots : session.guest_shots;
+    if (myShots[k]) return; // already shot here
     sfx.click();
+    setMarks((m) => {
+      const next = { ...m };
+      if (next[k]) delete next[k];
+      else next[k] = true;
+      return next;
+    });
   }
 
   const isOver = session.status === "finished";
@@ -156,42 +197,62 @@ export function MultiplayerScreen({ session, role }: Props) {
   }
 
   const winVariant = session.winner === role ? "win" : session.winner === "draw" ? "info" : "lose";
-  const winnerNick = session.winner === "host" ? session.host_nickname : session.winner === "guest" ? (session.guest_nickname ?? "Opponent") : null;
+  const winnerNick = session.winner === "host" ? session.host_nickname
+    : session.winner === "guest" ? (session.guest_nickname ?? "Opponent") : null;
+
+  const myDisplayTime = myTimeLeft;
+  const opDisplayTime = opTimeLeft;
+  const myTimeLow = myDisplayTime !== null && myDisplayTime < 30 && isMyTurn;
+  const opTimeLow = opDisplayTime !== null && opDisplayTime < 30 && !isMyTurn;
 
   return (
     <div className="h-[calc(100vh-80px)] p-4 grid grid-rows-[auto_1fr] gap-4">
       {/* HUD */}
       <div className="glass px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <span className="font-display uppercase tracking-widest text-sm">
             Turn: <span className={isMyTurn ? "neon-cyan" : "neon-enemy"}>
               {isMyTurn ? "You" : opNick}
             </span>
           </span>
-          <span className="text-xs text-muted-foreground">
-            vs <span className="text-foreground">{opNick}</span>
-          </span>
+          <span className="text-xs text-muted-foreground">vs <span className="text-foreground">{opNick}</span></span>
         </div>
-        <div className="flex items-center gap-3">
-          {session.status === "playing" && (
-            <span className={`font-display text-sm tabular-nums ${timeLeft < 30 ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
-              ⏱ {formatTime(timeLeft)}
-            </span>
-          )}
-        </div>
+
+        {session.status === "playing" && isTimed && (
+          <div className="flex items-center gap-4">
+            {/* Opponent clock */}
+            <div className="text-center">
+              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">{opNick}</div>
+              <div className={`font-display text-sm tabular-nums ${opTimeLow ? "neon-enemy animate-pulse-glow" : "text-muted-foreground"}`}>
+                ⏱ {opDisplayTime !== null ? formatTime(opDisplayTime) : "∞"}
+              </div>
+            </div>
+            <div className="w-px h-8 bg-border" />
+            {/* My clock */}
+            <div className="text-center">
+              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">You</div>
+              <div className={`font-display text-sm tabular-nums ${myTimeLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
+                ⏱ {myDisplayTime !== null ? formatTime(myDisplayTime) : "∞"}
+              </div>
+            </div>
+          </div>
+        )}
+        {session.status === "playing" && !isTimed && (
+          <span className="font-display text-sm text-muted-foreground">∞ Unlimited</span>
+        )}
       </div>
 
       {/* Boards */}
-      <div className="grid lg:grid-cols-[1fr_260px_1fr] gap-4 min-h-0">
+      <div className="grid lg:grid-cols-[1fr_240px_1fr] gap-4 min-h-0">
         {/* My board */}
         <section className="glass relative overflow-hidden min-h-[300px]">
           <div className="absolute top-3 left-3 z-10 font-display text-xs uppercase tracking-widest neon-cyan">
             {myNick} (You)
           </div>
-          <GameBoard3D board={myBoard} isEnemy={false} revealShips />
+          <GameBoard3D board={myBoard} isEnemy={false} revealShips boardSize={gridSize} />
         </section>
 
-        {/* Comms */}
+        {/* Comms panel */}
         <section className="glass p-4 flex flex-col">
           <h3 className="font-display uppercase tracking-widest text-xs neon-cyan mb-3">Comms</h3>
           <ul className="text-xs space-y-1.5 font-mono overflow-y-auto flex-1">
@@ -200,8 +261,9 @@ export function MultiplayerScreen({ session, role }: Props) {
             ))}
           </ul>
           <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1">
-            <div>Enemy sunk: <span className="neon-enemy">{mySunk}/5</span></div>
-            <div>Your losses: <span className="neon-cyan">{opSunkByMe}/5</span></div>
+            <div>Enemy sunk: <span className="neon-enemy">{mySunk}/{totalShips}</span></div>
+            <div>Your losses: <span className="neon-cyan">{opSunkByMe}/{totalShips}</span></div>
+            <div className="pt-1 text-[10px] opacity-60">Right-click to mark cells</div>
           </div>
         </section>
 
@@ -217,6 +279,7 @@ export function MultiplayerScreen({ session, role }: Props) {
             board={opBoard}
             isEnemy
             revealShips={isOver}
+            boardSize={gridSize}
             onCellClick={handleFire}
             onCellRightClick={toggleMark}
           />
@@ -230,9 +293,7 @@ export function MultiplayerScreen({ session, role }: Props) {
         variant={winVariant}
         title={winText}
         onClose={() => {}}
-        actions={
-          <a className="btn-cyber" href="/play">New Battle</a>
-        }
+        actions={<a className="btn-cyber" href="/play">New Battle</a>}
       >
         {session.winner === "draw"
           ? "Both fleets equally battered. A strategic draw."
@@ -240,7 +301,7 @@ export function MultiplayerScreen({ session, role }: Props) {
             ? `${opNick}'s fleet annihilated. Command salutes you.`
             : `${winnerNick} prevails. Your fleet has fallen.`}
         <div className="mt-3 text-xs text-muted-foreground">
-          Enemy ships sunk: {mySunk}/5 · Your losses: {opSunkByMe}/5
+          Enemy ships sunk: {mySunk}/{totalShips} · Your losses: {opSunkByMe}/{totalShips}
         </div>
       </CyberModal>
     </div>
