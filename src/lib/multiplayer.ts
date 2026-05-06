@@ -204,13 +204,12 @@ export async function fireShot(session: GameSession, role: PlayerRole, x: number
   };
 }
 
-export async function endByTimer(session: GameSession): Promise<PlayerRole | "draw"> {
-  const hostSunk = (session.guest_ships ?? []).filter((s) => s.hits >= s.size).length;
-  const guestSunk = (session.host_ships ?? []).filter((s) => s.hits >= s.size).length;
-  const winner: PlayerRole | "draw" = hostSunk > guestSunk ? "host" : guestSunk > hostSunk ? "guest" : "draw";
+/** Called when a player's per-turn timer hits zero. The other player wins. */
+export async function endByTimeout(session: GameSession, loser: PlayerRole): Promise<PlayerRole> {
+  const winner: PlayerRole = loser === "host" ? "guest" : "host";
   await supabase
     .from("game_sessions")
-    .update({ status: "finished", winner, ended_at: new Date().toISOString() })
+    .update({ status: "finished", winner, ended_at: new Date().toISOString() } as never)
     .eq("id", session.id);
   return winner;
 }
