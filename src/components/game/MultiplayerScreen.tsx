@@ -8,7 +8,7 @@ import { cellKey, expandFleet, DEFAULT_FLEET } from "@/lib/game/types";
 import {
   type GameSession, type PlayerRole,
   getBoardForRole, getOpponentBoard, countSunk,
-  getRemainingSeconds, getGameDuration, fireShot, endByTimer, submitShips,
+  getGameDuration, fireShot, endByTimeout, submitShips,
 } from "@/lib/multiplayer";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,12 +29,18 @@ export function MultiplayerScreen({ session, role }: Props) {
   const { user } = useAuth();
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
-  const [timeLeft, setTimeLeft] = useState(getRemainingSeconds(session));
   const [marks, setMarks] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem(`marks_${session.id}`) ?? "{}"); }
     catch { return {}; }
   });
   const [showEndModal, setShowEndModal] = useState(true);
+  // Chess clocks — each player's time ticks only on their turn
+  const dur = getGameDuration(session.game_mode);
+  const [myTime, setMyTime] = useState(dur);
+  const [opTime, setOpTime] = useState(dur);
+  const myTimeRef = useRef(dur);
+  const opTimeRef = useRef(dur);
+  const lastTickRef = useRef(Date.now());
   const timerEndedRef = useRef(false);
   const savedMatchRef = useRef(false);
 
@@ -48,21 +54,30 @@ export function MultiplayerScreen({ session, role }: Props) {
     setLog((l) => [msg, ...l].slice(0, 8));
   }
 
-  // Timer countdown (elapsed since game start, like PR #3)
+  // Chess clock — only the active player's timer ticks; re-runs when turn changes
   useEffect(() => {
-    if (session.status !== "playing" || session.game_mode === "infinite") return;
+    if (session.status !== "playing" || !isFinite(dur)) return;
     timerEndedRef.current = false;
+    lastTickRef.current = Date.now();
     const tick = setInterval(() => {
-      const remaining = getRemainingSeconds(session);
-      setTimeLeft(remaining);
-      if (remaining <= 0 && !timerEndedRef.current) {
-        timerEndedRef.current = true;
-        clearInterval(tick);
-        endByTimer(session);
+      const now = Date.now();
+      const elapsed = (now - lastTickRef.current) / 1000;
+      lastTickRef.current = now;
+      if (session.current_turn === role) {
+        myTimeRef.current = Math.max(0, myTimeRef.current - elapsed);
+        setMyTime(myTimeRef.current);
+        if (myTimeRef.current <= 0 && !timerEndedRef.current) {
+          timerEndedRef.current = true;
+          clearInterval(tick);
+          void endByTimeout(session, role);
+        }
+      } else {
+        opTimeRef.current = Math.max(0, opTimeRef.current - elapsed);
+        setOpTime(opTimeRef.current);
       }
-    }, 500);
+    }, 250);
     return () => clearInterval(tick);
-  }, [session.status, session.started_at, session.id]);
+  }, [session.status, session.current_turn, session.id]);
 
   // Persist marks to localStorage
   useEffect(() => {
@@ -223,7 +238,8 @@ export function MultiplayerScreen({ session, role }: Props) {
   const winVariant = session.winner === role ? "win" : session.winner === "draw" ? "info" : "lose";
   const winnerNick = session.winner === "host" ? session.host_nickname
     : session.winner === "guest" ? (session.guest_nickname ?? "Opponent") : null;
-  const timeLow = isFinite(timeLeft) && timeLeft < 30;
+  const myTimeLow = isFinite(myTime) && myTime < 30;
+  const opTimeLow = isFinite(opTime) && opTime < 30;
 
   return (
     <div className="h-[calc(100vh-80px)] p-4 grid grid-rows-[auto_1fr] gap-4">
@@ -237,10 +253,25 @@ export function MultiplayerScreen({ session, role }: Props) {
           </span>
           <span className="text-xs text-muted-foreground">vs <span className="text-foreground">{opNick}</span></span>
         </div>
-        {session.status === "playing" && (
-          <span className={`font-display text-sm tabular-nums ${timeLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
-            ⏱ {formatTime(timeLeft)}
-          </span>
+        {session.status === "playing" && isFinite(dur) && (
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">{opNick}</div>
+              <div className={`font-display text-sm tabular-nums ${opTimeLow ? "neon-enemy animate-pulse-glow" : "text-muted-foreground"}`}>
+                ⏱ {formatTime(opTime)}
+              </div>
+            </div>
+            <div className="w-px h-8 bg-border" />
+            <div className="text-center">
+              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">You</div>
+              <div className={`font-display text-sm tabular-nums ${myTimeLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
+                ⏱ {formatTime(myTime)}
+              </div>
+            </div>
+          </div>
+        )}
+        {session.status === "playing" && !isFinite(dur) && (
+          <span className="font-display text-sm text-muted-foreground">∞ Unlimited</span>
         )}
       </div>
 
