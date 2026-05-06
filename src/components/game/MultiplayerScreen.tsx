@@ -102,7 +102,7 @@ export function MultiplayerScreen({ session, role }: Props) {
       shots_fired: Object.keys(myShots).length,
       duration_seconds: duration,
     });
-  }, [session.status, session.winner]);
+  }, [session.status, session.winner, user]);
 
   // Reset on new session
   useEffect(() => {
