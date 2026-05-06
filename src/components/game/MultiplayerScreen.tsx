@@ -191,11 +191,22 @@ export function MultiplayerScreen({ session, role }: Props) {
             vs <span className="text-foreground">{opNick}</span>
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          {session.status === "playing" && (
-            <span className={`font-display text-sm tabular-nums ${timeLeft < 30 ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
-              ⏱ {formatTime(timeLeft)}
-            </span>
+        <div className="flex items-center gap-4">
+          {isTimedMode(session.game_mode) ? (
+            <>
+              <span className="text-xs text-muted-foreground">
+                {myNick}: <span className={`font-display tabular-nums ${session.current_turn === role && myClock < 30 ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
+                  ⏱ {formatTime(myClock)}
+                </span>
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {opNick}: <span className={`font-display tabular-nums ${session.current_turn !== role && opClock < 30 ? "neon-enemy animate-pulse-glow" : "neon-enemy"}`}>
+                  ⏱ {formatTime(opClock)}
+                </span>
+              </span>
+            </>
+          ) : (
+            <span className="font-display text-xs uppercase tracking-widest text-muted-foreground">∞ Untimed</span>
           )}
         </div>
       </div>
