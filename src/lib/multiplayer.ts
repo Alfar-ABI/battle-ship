@@ -207,7 +207,8 @@ export async function fireShot(
     updatePayload.ended_at = new Date().toISOString();
   }
 
-  await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
+  const { error: updateError } = await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
+  if (updateError) return null;
 
   return {
     outcome,
@@ -292,7 +293,7 @@ export function useGameSession(sessionId: string | null) {
     channelRef.current = channel;
 
     // Polling fallback in case Realtime misses updates
-    const poll = setInterval(() => { void refetch.current(); }, 3000);
+    const poll = setInterval(() => { void refetch.current(); }, 1500);
 
     return () => {
       supabase.removeChannel(channel);
