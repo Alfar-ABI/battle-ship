@@ -116,10 +116,13 @@ export function MultiplayerScreen({ session, role }: Props) {
         <div className="mb-2 text-xs text-muted-foreground font-display uppercase tracking-widest">
           {opNick} has joined — place your fleet
         </div>
-        <PlacementBoard onConfirm={async (ships) => {
-          sfx.click();
-          await submitShips(session.id, role, ships);
-        }} />
+        <PlacementBoard
+          fleet={expandFleet((session.fleet_config ?? DEFAULT_FLEET) as never)}
+          onConfirm={async (ships) => {
+            sfx.click();
+            await submitShips(session.id, role, ships);
+          }}
+        />
       </div>
     );
   }
