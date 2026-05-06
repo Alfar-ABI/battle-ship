@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { allSunk, cellKey, fireAt, shipCells, type BoardState, type PlacedShip } from "@/lib/game/types";
+import { allSunk, cellKey, fireAt, shipCells, type BoardState, type FleetConfig, type PlacedShip } from "@/lib/game/types";
 
-export type GameMode = "4min" | "10min";
+export type GameMode = "4min" | "10min" | "infinite";
 export type SessionStatus = "waiting" | "placing" | "playing" | "finished";
 export type PlayerRole = "host" | "guest";
 
