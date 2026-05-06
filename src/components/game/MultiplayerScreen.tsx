@@ -29,7 +29,10 @@ export function MultiplayerScreen({ session, role }: Props) {
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
   const [myClock, setMyClock] = useState(getStoredRemaining(session, role));
   const [opClock, setOpClock] = useState(getStoredRemaining(session, role === "host" ? "guest" : "host"));
-  const [marks, setMarks] = useState<Record<string, boolean>>({});
+  const [marks, setMarks] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(`marks_${session.id}`) ?? "{}"); }
+    catch { return {}; }
+  });
   const timerEndedRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
@@ -61,6 +64,11 @@ export function MultiplayerScreen({ session, role }: Props) {
     }, 250);
     return () => clearInterval(tick);
   }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
+
+  // Persist marks to localStorage
+  useEffect(() => {
+    localStorage.setItem(`marks_${session.id}`, JSON.stringify(marks));
+  }, [marks, session.id]);
 
   // Update log when turn changes
   useEffect(() => {

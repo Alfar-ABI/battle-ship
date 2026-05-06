@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Text } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { BoardState, PlacedShip } from "@/lib/game/types";
@@ -207,6 +207,30 @@ function GridLines({ boardSize }: { boardSize: number }) {
   );
 }
 
+function AxisLabels({ boardSize }: { boardSize: number }) {
+  const half = (boardSize * CELL) / 2;
+  const offset = half - CELL / 2;
+  const edgeZ = half + 0.65;
+  const edgeX = -(half + 0.65);
+  return (
+    <>
+      {Array.from({ length: boardSize }, (_, i) => {
+        const pos = i * CELL - offset;
+        return (
+          <group key={i}>
+            <Text position={[pos, 0.05, edgeZ]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.3} color="#3ad8ff" anchorX="center" anchorY="middle">
+              {i.toString()}
+            </Text>
+            <Text position={[edgeX, 0.05, pos]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.3} color="#3ad8ff" anchorX="center" anchorY="middle">
+              {String.fromCharCode(65 + i)}
+            </Text>
+          </group>
+        );
+      })}
+    </>
+  );
+}
+
 function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview, boardSize = 10, playerColor }: BoardProps) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const isLight = typeof document !== "undefined" && document.documentElement.classList.contains("light");
@@ -273,6 +297,7 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
           <meshStandardMaterial color={isLight ? "#cfd8e3" : "#070c14"} metalness={0.5} roughness={0.5} />
         </mesh>
         <GridLines boardSize={boardSize} />
+        <AxisLabels boardSize={boardSize} />
         {cells}
         {board.ships.map((s) =>
           (revealShips || s.hits >= s.size) ? (

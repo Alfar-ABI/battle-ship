@@ -28,7 +28,10 @@ function formatTime(secs: number | null): string {
 export function MpRoomScreen({ room, playerId }: Props) {
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Battle station active."]);
-  const [marks, setMarks] = useState<Record<string, Record<string, boolean>>>({});
+  const [marks, setMarks] = useState<Record<string, Record<string, boolean>>>(() => {
+    try { return JSON.parse(localStorage.getItem(`room_marks_${room.id}`) ?? "{}"); }
+    catch { return {}; }
+  });
   const [clocks, setClocks] = useState<Record<string, number | null>>({});
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const timerEndedRef = useRef(false);
@@ -88,6 +91,11 @@ export function MpRoomScreen({ room, playerId }: Props) {
 
     return () => clearInterval(tick);
   }, [room.status, room.current_turn, room.turn_started_at, room.game_mode]);
+
+  // Persist marks to localStorage
+  useEffect(() => {
+    localStorage.setItem(`room_marks_${room.id}`, JSON.stringify(marks));
+  }, [marks, room.id]);
 
   // Placement phase
   if (room.status === "waiting" || room.status === "placing") {
@@ -165,7 +173,7 @@ export function MpRoomScreen({ room, playerId }: Props) {
           All players joined — place your fleet
         </div>
         <PlacementBoard
-          fleet={room.fleet_config ?? DEFAULT_FLEET}
+          fleet={expandFleet(room.fleet_config ?? DEFAULT_FLEET)}
           boardSize={gridSize}
           onConfirm={async (ships) => {
             sfx.click();
