@@ -35,8 +35,8 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
   const rotY = ship.orientation === "h" ? 0 : Math.PI / 2;
 
   const hullColor = sunk ? "#3a3a3a" : color;
-  const deckColor = "#0b1220";
-  const accentEmissive = sunk ? 0.02 : 0.75;
+  const deckColor = "#1a2740";
+  const accentEmissive = sunk ? 0.05 : 1.4;
 
   // Number of turrets/funnels scales with size
   const turretCount = Math.max(1, ship.size - 2);
@@ -46,7 +46,7 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
       {/* Main hull (slightly tapered using box) */}
       <mesh position={[0, 0.12, 0]} castShadow>
         <boxGeometry args={[len * 0.78, 0.18, wid]} />
-        <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} emissive={color} emissiveIntensity={accentEmissive * 0.55} />
+        <meshStandardMaterial color={hullColor} metalness={0.55} roughness={0.3} emissive={color} emissiveIntensity={sunk ? 0.05 : 0.9} toneMapped={false} />
       </mesh>
 
       {/* Bow (pointed front) */}
@@ -224,7 +224,7 @@ function GridLines() {
 function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview }: BoardProps) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const isLight = typeof document !== "undefined" && document.documentElement.classList.contains("light");
-  const bgColor = isLight ? "#e8eef5" : "#05070d";
+  const bgColor = isLight ? "#dde8f5" : "#05070d";
   const previewSet = useMemo(() => {
     if (!hoverPreview) return null;
     return new Set(hoverPreview.cells.map((c) => cellKey(c.x, c.y)));
@@ -270,14 +270,15 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
     <>
       <color attach="background" args={[bgColor]} />
       <fog attach="fog" args={[bgColor, 16, 34]} />
-      <ambientLight intensity={isLight ? 0.9 : 0.55} />
-      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.3 : 1.1} />
-      <pointLight position={[0, 4, 0]} intensity={1.2} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
+      <ambientLight intensity={isLight ? 1.1 : 0.9} />
+      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.6 : 1.5} />
+      <pointLight position={[0, 4, 0]} intensity={1.8} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
+      <pointLight position={[0, 6, 6]} intensity={0.9} color={"#ffffff"} />
 
       <group>
         <mesh position={[0, -0.05, 0]} receiveShadow>
           <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
-          <meshStandardMaterial color={isLight ? "#cfd8e3" : "#070c14"} metalness={0.5} roughness={0.5} />
+          <meshStandardMaterial color={isLight ? "#bdd4ee" : "#070c14"} metalness={0.5} roughness={0.5} />
         </mesh>
         <GridLines />
         {cells}
