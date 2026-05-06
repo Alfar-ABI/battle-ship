@@ -6,7 +6,7 @@ import {
   type GameMode, createSession,
   getOrCreatePlayerId, getSavedNickname, saveNickname,
 } from "@/lib/multiplayer";
-import { SHIP_DEFS, type FleetConfig, DEFAULT_FLEET } from "@/lib/game/types";
+import { SHIP_TYPES, DEFAULT_FLEET, fleetTotal, type FleetConfig, type ShipKind } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 
 export const Route = createFileRoute("/play")({
@@ -42,7 +42,7 @@ function Lobby({ onSelectBot, onSelectMultiplayer }: { onSelectBot: () => void; 
             <div className="text-3xl">🤖</div>
             <div>
               <div className="font-display text-lg uppercase tracking-widest neon-cyan group-hover:brightness-125">vs Bot</div>
-              <div className="text-xs text-muted-foreground mt-1">Solo battle against AI — Easy, Medium, or Hard</div>
+              <div className="text-xs text-muted-foreground mt-1">Solo battle against AI — Easy, Medium, or Hard difficulty</div>
             </div>
             <div className="text-xs text-muted-foreground">Unlimited · Play offline</div>
           </button>
@@ -81,12 +81,12 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const totalShips = SHIP_DEFS.reduce((sum, d) => sum + (fleet[d.id] ?? 0), 0);
+  const total = fleetTotal(fleet);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     sfx.click();
-    if (totalShips === 0) { setError("Select at least 1 ship."); return; }
+    if (total === 0) { setError("Select at least 1 ship."); return; }
     setCreating(true);
     setError(null);
     const nick = nickname.trim() || "Commander";
@@ -99,7 +99,6 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
       if (!session) { setError("Failed to create session. Try again."); return; }
       nav({ to: "/mp/$sessionId", params: { sessionId: session.id } });
     } else {
-      // 3-4 player room
       const { createRoom } = await import("@/lib/mpRoom");
       const room = await createRoom({ mode: gameMode, maxPlayers: playerCount, fleet, gridSize, nickname: nick });
       setCreating(false);
@@ -117,7 +116,6 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
         </div>
 
         <form onSubmit={handleCreate} className="space-y-5">
-          {/* Callsign */}
           <div>
             <label className="text-xs font-display uppercase tracking-widest text-muted-foreground">Your Callsign</label>
             <input
@@ -131,7 +129,6 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
             />
           </div>
 
-          {/* Player count */}
           <div>
             <label className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 block">Players</label>
             <div className="flex gap-2">
@@ -157,11 +154,8 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
             )}
           </div>
 
-          {/* Game mode */}
           <div>
-            <label className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 block">
-              Timer Mode
-            </label>
+            <label className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 block">Timer Mode</label>
             <div className="flex gap-2">
               {(["4min", "10min", "infinite"] as GameMode[]).map((m) => (
                 <button
@@ -180,12 +174,11 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
             </div>
             {gameMode !== "infinite" && (
               <p className="text-xs text-muted-foreground mt-1">
-                Each player's clock only ticks on their turn (chess clock). Most ships sunk wins on timeout.
+                Each player's clock only ticks on their own turn. Most ships sunk wins on timeout.
               </p>
             )}
           </div>
 
-          {/* Advanced toggle */}
           <button
             type="button"
             onClick={() => { sfx.click(); setShowAdvanced((v) => !v); }}
@@ -196,21 +189,14 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
 
           {showAdvanced && (
             <div className="space-y-4 border border-border rounded-md p-4">
-              {/* Grid size */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-display uppercase tracking-widest text-muted-foreground">
-                    Grid Size
-                  </label>
+                  <label className="text-xs font-display uppercase tracking-widest text-muted-foreground">Grid Size</label>
                   <span className="text-xs font-display neon-cyan">{gridSize}×{gridSize}</span>
                 </div>
                 <input
-                  type="range"
-                  min={8}
-                  max={16}
-                  step={1}
-                  value={gridSize}
-                  onChange={(e) => { sfx.click(); setGridSize(Number(e.target.value)); }}
+                  type="range" min={8} max={16} step={1} value={gridSize}
+                  onChange={(e) => setGridSize(Number(e.target.value))}
                   className="w-full accent-[var(--cyan)]"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
@@ -218,14 +204,13 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
-              {/* Fleet config */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-display uppercase tracking-widest text-muted-foreground">Fleet Configuration</label>
-                  <span className="text-xs text-muted-foreground">{totalShips} ships</span>
+                  <span className="text-xs text-muted-foreground">{total} ships</span>
                 </div>
                 <div className="space-y-2">
-                  {SHIP_DEFS.map((def) => (
+                  {SHIP_TYPES.map((def) => (
                     <div key={def.id} className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-24 font-mono">{def.name}</span>
                       <div className="flex items-center gap-1">
@@ -236,13 +221,13 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
                       <div className="flex items-center gap-2 ml-auto">
                         <button
                           type="button"
-                          onClick={() => setFleet((f) => ({ ...f, [def.id]: Math.max(0, (f[def.id] ?? 1) - 1) }))}
+                          onClick={() => setFleet((f) => ({ ...f, [def.id]: Math.max(0, (f[def.id as ShipKind] ?? 1) - 1) }))}
                           className="w-6 h-6 rounded border border-border text-muted-foreground hover:text-foreground hover:border-[var(--cyan)] text-xs"
                         >−</button>
-                        <span className="text-sm font-display neon-cyan w-4 text-center">{fleet[def.id] ?? 0}</span>
+                        <span className="text-sm font-display neon-cyan w-4 text-center">{fleet[def.id as ShipKind] ?? 0}</span>
                         <button
                           type="button"
-                          onClick={() => setFleet((f) => ({ ...f, [def.id]: Math.min(5, (f[def.id] ?? 1) + 1) }))}
+                          onClick={() => setFleet((f) => ({ ...f, [def.id]: Math.min(5, (f[def.id as ShipKind] ?? 1) + 1) }))}
                           className="w-6 h-6 rounded border border-border text-muted-foreground hover:text-foreground hover:border-[var(--cyan)] text-xs"
                         >+</button>
                       </div>

@@ -8,7 +8,8 @@ import { cellKey, expandFleet, DEFAULT_FLEET } from "@/lib/game/types";
 import {
   type GameSession, type PlayerRole,
   getBoardForRole, getOpponentBoard, countSunk,
-  getChessClockRemaining, fireShot, endByTimer, submitShips,
+  getActiveRemaining, getStoredRemaining, isTimedMode,
+  fireShot, endByTimeout, submitShips,
 } from "@/lib/multiplayer";
 
 interface Props {
@@ -26,14 +27,14 @@ function formatTime(secs: number): string {
 export function MultiplayerScreen({ session, role }: Props) {
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
+  const [myClock, setMyClock] = useState(getStoredRemaining(session, role));
+  const [opClock, setOpClock] = useState(getStoredRemaining(session, role === "host" ? "guest" : "host"));
   const [marks, setMarks] = useState<Record<string, boolean>>({});
-  const [myTimeLeft, setMyTimeLeft] = useState<number | null>(null);
-  const [opTimeLeft, setOpTimeLeft] = useState<number | null>(null);
   const timerEndedRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
   const opNick = role === "host" ? (session.guest_nickname ?? "Opponent") : session.host_nickname;
-  const isTimed = session.game_mode !== "infinite";
+  const opRole: PlayerRole = role === "host" ? "guest" : "host";
   const fleet = expandFleet(session.fleet_config ?? DEFAULT_FLEET);
   const gridSize = session.grid_size ?? 10;
   const totalShips = fleet.length;
@@ -42,35 +43,24 @@ export function MultiplayerScreen({ session, role }: Props) {
     setLog((l) => [msg, ...l].slice(0, 8));
   }
 
-  // Per-turn chess clock: only active player's clock ticks
+  // Per-player chess clock countdown
   useEffect(() => {
-    if (session.status !== "playing" || !isTimed) {
-      setMyTimeLeft(null);
-      setOpTimeLeft(null);
-      return;
-    }
+    if (session.status !== "playing" || !isTimedMode(session.game_mode)) return;
     timerEndedRef.current = false;
-
     const tick = setInterval(() => {
-      const myR = getChessClockRemaining(session, role);
-      const opR = getChessClockRemaining(session, role === "host" ? "guest" : "host");
-      setMyTimeLeft(myR);
-      setOpTimeLeft(opR);
-
-      // Detect timeout for active player
-      if (session.current_turn === role && myR !== null && myR <= 0 && !timerEndedRef.current) {
+      const me = getStoredRemaining(session, role);
+      const op = getStoredRemaining(session, opRole);
+      setMyClock(me);
+      setOpClock(op);
+      const activeRemaining = session.current_turn === role ? me : op;
+      if (activeRemaining <= 0 && !timerEndedRef.current) {
         timerEndedRef.current = true;
         clearInterval(tick);
-        endByTimer(session);
+        endByTimeout(session, session.current_turn);
       }
     }, 250);
-
-    // Set initial values immediately
-    setMyTimeLeft(getChessClockRemaining(session, role));
-    setOpTimeLeft(getChessClockRemaining(session, role === "host" ? "guest" : "host"));
-
     return () => clearInterval(tick);
-  }, [session.status, session.current_turn, session.turn_started_at, session.game_mode]);
+  }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
 
   // Update log when turn changes
   useEffect(() => {
@@ -94,7 +84,7 @@ export function MultiplayerScreen({ session, role }: Props) {
             <div className="input-cyber text-xs break-all select-all cursor-text">
               {typeof window !== "undefined" ? window.location.href : ""}
             </div>
-            <div className="flex gap-3 justify-center flex-wrap text-xs text-muted-foreground">
+            <div className="flex justify-center gap-4 text-xs text-muted-foreground flex-wrap">
               <span>Grid: {gridSize}×{gridSize}</span>
               <span>Mode: {session.game_mode === "infinite" ? "∞ Unlimited" : session.game_mode}</span>
               <span>Ships: {totalShips}</span>
@@ -135,7 +125,7 @@ export function MultiplayerScreen({ session, role }: Props) {
           {opNick} has joined — place your fleet
         </div>
         <PlacementBoard
-          fleet={session.fleet_config ?? DEFAULT_FLEET}
+          fleet={fleet}
           boardSize={gridSize}
           onConfirm={async (ships) => {
             sfx.click();
@@ -146,14 +136,14 @@ export function MultiplayerScreen({ session, role }: Props) {
     );
   }
 
-  // ── Playing / Finished ───────────────────────────────────────────────────
+  // ── Playing / Finished ─────────────────────────────────────────────────
 
   const myBoard = getBoardForRole(session, role);
   const opBoardRaw = getOpponentBoard(session, role);
   const opBoard = { ...opBoardRaw, marks };
   const isMyTurn = session.current_turn === role;
   const mySunk = countSunk(session, role);
-  const opSunkByMe = countSunk(session, role === "host" ? "guest" : "host");
+  const opSunkByMe = countSunk(session, opRole);
 
   async function handleFire(x: number, y: number) {
     if (!isMyTurn || session.status !== "playing") return;
@@ -178,7 +168,7 @@ export function MultiplayerScreen({ session, role }: Props) {
   function toggleMark(x: number, y: number) {
     const k = cellKey(x, y);
     const myShots = role === "host" ? session.host_shots : session.guest_shots;
-    if (myShots[k]) return; // already shot here
+    if (myShots[k]) return;
     sfx.click();
     setMarks((m) => {
       const next = { ...m };
@@ -200,10 +190,8 @@ export function MultiplayerScreen({ session, role }: Props) {
   const winnerNick = session.winner === "host" ? session.host_nickname
     : session.winner === "guest" ? (session.guest_nickname ?? "Opponent") : null;
 
-  const myDisplayTime = myTimeLeft;
-  const opDisplayTime = opTimeLeft;
-  const myTimeLow = myDisplayTime !== null && myDisplayTime < 30 && isMyTurn;
-  const opTimeLow = opDisplayTime !== null && opDisplayTime < 30 && !isMyTurn;
+  const myClockLow = isFinite(myClock) && myClock < 30 && isMyTurn;
+  const opClockLow = isFinite(opClock) && opClock < 30 && !isMyTurn;
 
   return (
     <div className="h-[calc(100vh-80px)] p-4 grid grid-rows-[auto_1fr] gap-4">
@@ -218,33 +206,30 @@ export function MultiplayerScreen({ session, role }: Props) {
           <span className="text-xs text-muted-foreground">vs <span className="text-foreground">{opNick}</span></span>
         </div>
 
-        {session.status === "playing" && isTimed && (
+        {session.status === "playing" && isTimedMode(session.game_mode) && (
           <div className="flex items-center gap-4">
-            {/* Opponent clock */}
             <div className="text-center">
               <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">{opNick}</div>
-              <div className={`font-display text-sm tabular-nums ${opTimeLow ? "neon-enemy animate-pulse-glow" : "text-muted-foreground"}`}>
-                ⏱ {opDisplayTime !== null ? formatTime(opDisplayTime) : "∞"}
+              <div className={`font-display text-sm tabular-nums ${opClockLow ? "neon-enemy animate-pulse-glow" : "text-muted-foreground"}`}>
+                ⏱ {formatTime(opClock)}
               </div>
             </div>
             <div className="w-px h-8 bg-border" />
-            {/* My clock */}
             <div className="text-center">
               <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">You</div>
-              <div className={`font-display text-sm tabular-nums ${myTimeLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
-                ⏱ {myDisplayTime !== null ? formatTime(myDisplayTime) : "∞"}
+              <div className={`font-display text-sm tabular-nums ${myClockLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
+                ⏱ {formatTime(myClock)}
               </div>
             </div>
           </div>
         )}
-        {session.status === "playing" && !isTimed && (
+        {session.status === "playing" && !isTimedMode(session.game_mode) && (
           <span className="font-display text-sm text-muted-foreground">∞ Unlimited</span>
         )}
       </div>
 
       {/* Boards */}
       <div className="grid lg:grid-cols-[1fr_240px_1fr] gap-4 min-h-0">
-        {/* My board */}
         <section className="glass relative overflow-hidden min-h-[300px]">
           <div className="absolute top-3 left-3 z-10 font-display text-xs uppercase tracking-widest neon-cyan">
             {myNick} (You)
@@ -252,7 +237,6 @@ export function MultiplayerScreen({ session, role }: Props) {
           <GameBoard3D board={myBoard} isEnemy={false} revealShips boardSize={gridSize} />
         </section>
 
-        {/* Comms panel */}
         <section className="glass p-4 flex flex-col">
           <h3 className="font-display uppercase tracking-widest text-xs neon-cyan mb-3">Comms</h3>
           <ul className="text-xs space-y-1.5 font-mono overflow-y-auto flex-1">
@@ -267,7 +251,6 @@ export function MultiplayerScreen({ session, role }: Props) {
           </div>
         </section>
 
-        {/* Opponent board */}
         <section className="glass relative overflow-hidden min-h-[300px]">
           <div className="absolute top-3 left-3 z-10 font-display text-xs uppercase tracking-widest neon-enemy">
             {opNick}'s Waters

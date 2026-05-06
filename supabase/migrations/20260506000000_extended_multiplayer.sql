@@ -1,10 +1,8 @@
--- Extend game_sessions with chess-clock, fleet config, and grid size
+-- Extend game_sessions with fleet config and grid size
+-- (host_time_left, guest_time_left, turn_started_at already exist in the schema)
 ALTER TABLE public.game_sessions
   ADD COLUMN IF NOT EXISTS fleet_config jsonb,
-  ADD COLUMN IF NOT EXISTS grid_size integer NOT NULL DEFAULT 10,
-  ADD COLUMN IF NOT EXISTS host_time_left_ms integer,
-  ADD COLUMN IF NOT EXISTS guest_time_left_ms integer,
-  ADD COLUMN IF NOT EXISTS turn_started_at timestamptz;
+  ADD COLUMN IF NOT EXISTS grid_size integer NOT NULL DEFAULT 10;
 
 -- Multi-player rooms (3-4 players)
 CREATE TABLE IF NOT EXISTS public.mp_rooms (

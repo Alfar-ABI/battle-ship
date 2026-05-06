@@ -1,15 +1,13 @@
-export const BOARD_SIZE = 10; // default
+export const BOARD_SIZE = 10;
 
-export type ShipId = "carrier" | "battleship" | "destroyer" | "submarine" | "patrol";
+export type ShipKind = "carrier" | "battleship" | "destroyer" | "submarine" | "patrol";
+export type ShipId = string;
 export type Orientation = "h" | "v";
 
-export type FleetConfig = Partial<Record<ShipId, number>>;
+export interface ShipDef { id: ShipId; name: string; size: number }
+export interface ShipType { id: ShipKind; name: string; size: number }
 
-export const DEFAULT_FLEET: FleetConfig = {
-  carrier: 1, battleship: 1, destroyer: 1, submarine: 1, patrol: 1,
-};
-
-export const SHIP_DEFS: { id: ShipId; name: string; size: number }[] = [
+export const SHIP_TYPES: ShipType[] = [
   { id: "carrier", name: "Carrier", size: 5 },
   { id: "battleship", name: "Battleship", size: 4 },
   { id: "destroyer", name: "Destroyer", size: 3 },
@@ -17,24 +15,31 @@ export const SHIP_DEFS: { id: ShipId; name: string; size: number }[] = [
   { id: "patrol", name: "Patrol Boat", size: 2 },
 ];
 
-/** Expand fleet config into ordered list of ship defs with unique string IDs */
-export function expandFleet(fleet: FleetConfig): { id: string; name: string; size: number }[] {
-  const result: { id: string; name: string; size: number }[] = [];
-  for (const def of SHIP_DEFS) {
-    const count = fleet[def.id] ?? 0;
-    for (let i = 0; i < count; i++) {
-      result.push({
-        id: count === 1 ? def.id : `${def.id}_${i}`,
-        name: count === 1 ? def.name : `${def.name} ${i + 1}`,
-        size: def.size,
-      });
+export type FleetConfig = Partial<Record<ShipKind, number>>;
+
+export const DEFAULT_FLEET: FleetConfig = {
+  carrier: 1, battleship: 1, destroyer: 1, submarine: 1, patrol: 1,
+};
+
+export function expandFleet(config: FleetConfig = DEFAULT_FLEET): ShipDef[] {
+  const out: ShipDef[] = [];
+  for (const t of SHIP_TYPES) {
+    const n = config[t.id] ?? 0;
+    for (let i = 0; i < n; i++) {
+      out.push({ id: n > 1 ? `${t.id}_${i}` : t.id, name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
     }
   }
-  return result;
+  return out;
 }
 
+export function fleetTotal(config: FleetConfig): number {
+  return SHIP_TYPES.reduce((s, t) => s + (config[t.id] ?? 0), 0);
+}
+
+export const SHIP_DEFS: ShipDef[] = expandFleet(DEFAULT_FLEET);
+
 export interface PlacedShip {
-  id: string; // ShipId or "carrier_0", "carrier_1", etc.
+  id: ShipId;
   name: string;
   size: number;
   x: number;
@@ -88,11 +93,7 @@ export function isValidPlacement(
   return true;
 }
 
-export function autoPlace(
-  fleet: FleetConfig = DEFAULT_FLEET,
-  boardSize = BOARD_SIZE,
-): PlacedShip[] {
-  const defs = expandFleet(fleet);
+export function autoPlace(defs: ShipDef[] = SHIP_DEFS, boardSize = BOARD_SIZE): PlacedShip[] {
   const ships: PlacedShip[] = [];
   for (const def of defs) {
     let tries = 0;

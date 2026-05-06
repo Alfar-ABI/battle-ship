@@ -16,79 +16,79 @@ export type Database = {
     Tables: {
       game_sessions: {
         Row: {
-          id: string
-          host_player_id: string
-          guest_player_id: string | null
-          host_nickname: string
-          guest_nickname: string | null
-          status: string
-          game_mode: string
-          current_turn: string
-          winner: string | null
-          host_ships: Json | null
-          guest_ships: Json | null
-          host_shots: Json
-          guest_shots: Json
-          host_ready: boolean
-          guest_ready: boolean
-          fleet_config: Json | null
-          grid_size: number
-          host_time_left_ms: number | null
-          guest_time_left_ms: number | null
-          turn_started_at: string | null
-          started_at: string | null
-          ended_at: string | null
           created_at: string
+          current_turn: string
+          ended_at: string | null
+          fleet_config: Json | null
+          game_mode: string
+          grid_size: number
+          guest_nickname: string | null
+          guest_player_id: string | null
+          guest_ready: boolean
+          guest_ships: Json | null
+          guest_shots: Json
+          guest_time_left: number | null
+          host_nickname: string
+          host_player_id: string
+          host_ready: boolean
+          host_ships: Json | null
+          host_shots: Json
+          host_time_left: number | null
+          id: string
+          started_at: string | null
+          status: string
+          turn_started_at: string | null
+          winner: string | null
         }
         Insert: {
-          id?: string
-          host_player_id: string
-          guest_player_id?: string | null
-          host_nickname?: string
-          guest_nickname?: string | null
-          status?: string
-          game_mode?: string
-          current_turn?: string
-          winner?: string | null
-          host_ships?: Json | null
-          guest_ships?: Json | null
-          host_shots?: Json
-          guest_shots?: Json
-          host_ready?: boolean
-          guest_ready?: boolean
-          fleet_config?: Json | null
-          grid_size?: number
-          host_time_left_ms?: number | null
-          guest_time_left_ms?: number | null
-          turn_started_at?: string | null
-          started_at?: string | null
-          ended_at?: string | null
           created_at?: string
+          current_turn?: string
+          ended_at?: string | null
+          fleet_config?: Json | null
+          game_mode?: string
+          grid_size?: number
+          guest_nickname?: string | null
+          guest_player_id?: string | null
+          guest_ready?: boolean
+          guest_ships?: Json | null
+          guest_shots?: Json
+          guest_time_left?: number | null
+          host_nickname?: string
+          host_player_id: string
+          host_ready?: boolean
+          host_ships?: Json | null
+          host_shots?: Json
+          host_time_left?: number | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          turn_started_at?: string | null
+          winner?: string | null
         }
         Update: {
-          id?: string
-          host_player_id?: string
-          guest_player_id?: string | null
-          host_nickname?: string
-          guest_nickname?: string | null
-          status?: string
-          game_mode?: string
-          current_turn?: string
-          winner?: string | null
-          host_ships?: Json | null
-          guest_ships?: Json | null
-          host_shots?: Json
-          guest_shots?: Json
-          host_ready?: boolean
-          guest_ready?: boolean
-          fleet_config?: Json | null
-          grid_size?: number
-          host_time_left_ms?: number | null
-          guest_time_left_ms?: number | null
-          turn_started_at?: string | null
-          started_at?: string | null
-          ended_at?: string | null
           created_at?: string
+          current_turn?: string
+          ended_at?: string | null
+          fleet_config?: Json | null
+          game_mode?: string
+          grid_size?: number
+          guest_nickname?: string | null
+          guest_player_id?: string | null
+          guest_ready?: boolean
+          guest_ships?: Json | null
+          guest_shots?: Json
+          guest_time_left?: number | null
+          host_nickname?: string
+          host_player_id?: string
+          host_ready?: boolean
+          host_ships?: Json | null
+          host_shots?: Json
+          host_time_left?: number | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          turn_started_at?: string | null
+          winner?: string | null
         }
         Relationships: []
       }

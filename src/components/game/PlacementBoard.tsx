@@ -1,28 +1,26 @@
 import { useMemo, useState } from "react";
 import { GameBoard3D } from "./GameBoard3D";
 import {
-  BOARD_SIZE, SHIP_DEFS, DEFAULT_FLEET, expandFleet,
-  type PlacedShip, type Orientation, type FleetConfig,
+  BOARD_SIZE, SHIP_DEFS, type ShipDef, type PlacedShip, type Orientation,
   autoPlace, isValidPlacement, shipCells, cellKey,
 } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 
 interface Props {
   onConfirm: (ships: PlacedShip[]) => void;
-  fleet?: FleetConfig;
+  fleet?: ShipDef[];
   boardSize?: number;
 }
 
-export function PlacementBoard({ onConfirm, fleet = DEFAULT_FLEET, boardSize = BOARD_SIZE }: Props) {
-  const shipDefs = useMemo(() => expandFleet(fleet), [fleet]);
-
+export function PlacementBoard({ onConfirm, fleet, boardSize = BOARD_SIZE }: Props) {
+  const defs = fleet && fleet.length ? fleet : SHIP_DEFS;
   const [ships, setShips] = useState<PlacedShip[]>([]);
-  const [selectedId, setSelectedId] = useState<string>(shipDefs[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState<string>(defs[0]?.id ?? "");
   const [orientation, setOrientation] = useState<Orientation>("h");
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
 
-  const remaining = shipDefs.filter((d) => !ships.find((s) => s.id === d.id));
-  const selectedDef = shipDefs.find((d) => d.id === selectedId) ?? remaining[0];
+  const remaining = defs.filter((d) => !ships.find((s) => s.id === d.id));
+  const selectedDef = defs.find((d) => d.id === selectedId) ?? remaining[0];
 
   const board = useMemo(() => ({ ships, shots: {} }), [ships]);
 
@@ -41,7 +39,7 @@ export function PlacementBoard({ onConfirm, fleet = DEFAULT_FLEET, boardSize = B
     sfx.place();
     const next = [...ships.filter((s) => s.id !== selectedDef.id), candidate];
     setShips(next);
-    const nextDef = shipDefs.find((d) => !next.find((s) => s.id === d.id));
+    const nextDef = defs.find((d) => !next.find((s) => s.id === d.id));
     if (nextDef) setSelectedId(nextDef.id);
   }
 
@@ -53,16 +51,16 @@ export function PlacementBoard({ onConfirm, fleet = DEFAULT_FLEET, boardSize = B
 
   function doAutoPlace() {
     sfx.place();
-    setShips(autoPlace(fleet, boardSize));
+    setShips(autoPlace(defs, boardSize));
   }
 
   function reset() {
     sfx.click();
     setShips([]);
-    setSelectedId(shipDefs[0]?.id ?? "");
+    setSelectedId(defs[0]?.id ?? "");
   }
 
-  const allPlaced = ships.length === shipDefs.length;
+  const allPlaced = ships.length === defs.length;
 
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-4 h-full">
@@ -90,7 +88,7 @@ export function PlacementBoard({ onConfirm, fleet = DEFAULT_FLEET, boardSize = B
         </div>
 
         <ul className="space-y-2">
-          {shipDefs.map((d) => {
+          {defs.map((d) => {
             const placed = ships.find((s) => s.id === d.id);
             const active = selectedId === d.id;
             return (
