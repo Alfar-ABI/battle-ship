@@ -6,6 +6,7 @@ import {
   type GameMode, createSession,
   getOrCreatePlayerId, getSavedNickname, saveNickname,
 } from "@/lib/multiplayer";
+import { SHIP_TYPES, DEFAULT_FLEET, fleetTotal, type FleetConfig, type ShipKind } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 
 export const Route = createFileRoute("/play")({
