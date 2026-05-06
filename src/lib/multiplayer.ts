@@ -110,7 +110,7 @@ export async function fetchSession(sessionId: string): Promise<GameSession | nul
 export async function submitShips(sessionId: string, role: PlayerRole, ships: PlacedShip[]): Promise<void> {
   const field = role === "host" ? "host_ships" : "guest_ships";
   const readyField = role === "host" ? "host_ready" : "guest_ready";
-  await supabase.from("game_sessions").update({ [field]: ships, [readyField]: true }).eq("id", sessionId);
+  await supabase.from("game_sessions").update({ [field]: ships as unknown, [readyField]: true } as never).eq("id", sessionId);
   // Check if both ready → start game
   const s = await fetchSession(sessionId);
   if (!s) return;
@@ -152,7 +152,7 @@ export async function fireShot(session: GameSession, role: PlayerRole, x: number
     updatePayload.ended_at = new Date().toISOString();
   }
 
-  await supabase.from("game_sessions").update(updatePayload).eq("id", session.id);
+  await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
 
   return {
     outcome,
