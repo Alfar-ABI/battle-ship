@@ -14,7 +14,7 @@ export const SHIP_TYPES: ShipDef[] = [
   { id: "patrol", name: "Patrol Boat", size: 2 },
 ];
 
-export type FleetConfig = Partial<Record<ShipId, number>>;
+export type FleetConfig = Partial<Record<ShipKind, number>>;
 
 export const DEFAULT_FLEET: FleetConfig = {
   carrier: 1, battleship: 1, destroyer: 1, submarine: 1, patrol: 1,
@@ -24,16 +24,17 @@ export const DEFAULT_FLEET: FleetConfig = {
 export function expandFleet(config: FleetConfig = DEFAULT_FLEET): ShipDef[] {
   const out: ShipDef[] = [];
   for (const t of SHIP_TYPES) {
-    const n = config[t.id] ?? 0;
+    const kind = t.id as unknown as ShipKind;
+    const n = config[kind] ?? 0;
     for (let i = 0; i < n; i++) {
-      out.push({ id: (n > 1 ? `${t.id}_${i}` : t.id) as ShipId, name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
+      out.push({ id: (n > 1 ? `${t.id}_${i}` : t.id), name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
     }
   }
   return out;
 }
 
 export function fleetTotal(config: FleetConfig): number {
-  return SHIP_TYPES.reduce((s, t) => s + (config[t.id] ?? 0), 0);
+  return SHIP_TYPES.reduce((s, t) => s + (config[t.id as unknown as ShipKind] ?? 0), 0);
 }
 
 /** Back-compat default fleet (one of each). */
