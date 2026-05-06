@@ -38,8 +38,8 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     catch { return {}; }
   });
   const [showEndModal, setShowEndModal] = useState(true);
+  const [firing, setFiring] = useState(false);
   const timerEndedRef = useRef(false);
-  const firingRef = useRef(false);
   const savedMatchRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
@@ -71,6 +71,11 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     }, 250);
     return () => clearInterval(tick);
   }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
+
+  // Release the firing lock once the DB change comes back through Realtime/polling
+  useEffect(() => {
+    setFiring(false);
+  }, [session.host_shots, session.guest_shots]);
 
   // Persist marks to localStorage
   useEffect(() => {
@@ -187,16 +192,21 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
   const opSunkByMe = countSunk(session, opRole);
 
   async function handleFire(x: number, y: number) {
-    if (!isMyTurn || session.status !== "playing" || firingRef.current) return;
+    if (!isMyTurn || session.status !== "playing" || firing) return;
     const k = cellKey(x, y);
     const myShots = role === "host" ? session.host_shots : session.guest_shots;
     if (myShots[k]) return;
 
-    firingRef.current = true;
+    // Lock immediately (React state → causes re-render → blocks further clicks)
+    setFiring(true);
     const result = await fireShot(session, role, x, y);
     void refetch?.();
-    firingRef.current = false;
-    if (!result) return;
+
+    if (!result) {
+      // DB write failed — release the lock so they can try again
+      setFiring(false);
+      return;
+    }
 
     const coord = `${String.fromCharCode(65 + x)}${y + 1}`;
     if (result.outcome === "miss") { sfx.miss(); pushLog(`Miss at ${coord}`); }
@@ -207,6 +217,7 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
       setSunk({ name: result.shipName, side: "enemy" });
     }
     if (result.gameOver) sfx.win();
+    // firing stays true until the useEffect above sees the session shots update
   }
 
   function toggleMark(x: number, y: number) {
