@@ -95,9 +95,9 @@ export function isValidPlacement(
   return true;
 }
 
-export function autoPlace(): PlacedShip[] {
+export function autoPlace(defs: ShipDef[] = SHIP_DEFS): PlacedShip[] {
   const ships: PlacedShip[] = [];
-  for (const def of SHIP_DEFS) {
+  for (const def of defs) {
     let tries = 0;
     while (tries++ < 500) {
       const orientation: Orientation = Math.random() < 0.5 ? "h" : "v";
