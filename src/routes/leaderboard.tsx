@@ -14,7 +14,6 @@ interface LeaderboardEntry {
   wins: number;
   losses: number;
   games: number;
-  score: number;
 }
 
 function LeaderboardPage() {
@@ -26,7 +25,7 @@ function LeaderboardPage() {
     supabase
       .from("leaderboard")
       .select()
-      .order("score", { ascending: false })
+      .order("wins", { ascending: false })
       .limit(50)
       .then(({ data }) => {
         setEntries((data ?? []) as LeaderboardEntry[]);
@@ -40,7 +39,7 @@ function LeaderboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl uppercase tracking-widest neon-cyan">Global Ranklist</h1>
-            <p className="text-xs text-muted-foreground mt-1">Bot games only · easy +25 · medium +50 · hard +100</p>
+            <p className="text-xs text-muted-foreground mt-1">Bot wins only</p>
           </div>
           <a href="/play" className="text-xs text-muted-foreground hover:text-foreground transition">← Back</a>
         </div>
@@ -58,7 +57,6 @@ function LeaderboardPage() {
                 <tr className="text-xs font-display uppercase tracking-widest text-muted-foreground border-b border-border">
                   <th className="text-left pb-3 pr-4">#</th>
                   <th className="text-left pb-3 pr-4">Callsign</th>
-                  <th className="text-right pb-3 pr-4">Score</th>
                   <th className="text-right pb-3 pr-4">Wins</th>
                   <th className="text-right pb-3 pr-4">Losses</th>
                   <th className="text-right pb-3">Win %</th>
@@ -80,8 +78,7 @@ function LeaderboardPage() {
                         <span className={isMe ? "neon-cyan font-display" : ""}>{e.nickname}</span>
                         {isMe && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
                       </td>
-                      <td className="py-3 pr-4 text-right font-display neon-cyan">{e.score ?? 0}</td>
-                      <td className="py-3 pr-4 text-right font-display text-muted-foreground">{e.wins}</td>
+                      <td className="py-3 pr-4 text-right font-display neon-cyan">{e.wins}</td>
                       <td className="py-3 pr-4 text-right text-muted-foreground">{e.losses}</td>
                       <td className="py-3 text-right text-muted-foreground">{winRate}%</td>
                     </tr>
