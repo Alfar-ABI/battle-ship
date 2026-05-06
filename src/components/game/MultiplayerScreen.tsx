@@ -155,7 +155,15 @@ export function MultiplayerScreen({ session, role }: Props) {
   }
 
   function toggleMark(x: number, y: number) {
+    const k = cellKey(x, y);
+    const myShots = role === "host" ? session.host_shots : session.guest_shots;
+    if (myShots[k]) return;
     sfx.click();
+    setMarks((m) => {
+      const next = { ...m };
+      if (next[k]) delete next[k]; else next[k] = true;
+      return next;
+    });
   }
 
   const isOver = session.status === "finished";
