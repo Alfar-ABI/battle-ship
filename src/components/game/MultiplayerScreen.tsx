@@ -8,8 +8,7 @@ import { cellKey, expandFleet, DEFAULT_FLEET } from "@/lib/game/types";
 import {
   type GameSession, type PlayerRole,
   getBoardForRole, getOpponentBoard, countSunk,
-  getActiveRemaining, getStoredRemaining, isTimedMode,
-  fireShot, endByTimeout, submitShips,
+  getRemainingSeconds, getGameDuration, fireShot, endByTimer, submitShips,
 } from "@/lib/multiplayer";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +16,6 @@ import { supabase } from "@/integrations/supabase/client";
 interface Props {
   session: GameSession;
   role: PlayerRole;
-  refetch?: () => Promise<void>;
 }
 
 function formatTime(secs: number): string {
@@ -27,25 +25,21 @@ function formatTime(secs: number): string {
   return `${m}:${s}`;
 }
 
-export function MultiplayerScreen({ session, role, refetch }: Props) {
+export function MultiplayerScreen({ session, role }: Props) {
   const { user } = useAuth();
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
-  const [myClock, setMyClock] = useState(getStoredRemaining(session, role));
-  const [opClock, setOpClock] = useState(getStoredRemaining(session, role === "host" ? "guest" : "host"));
+  const [timeLeft, setTimeLeft] = useState(getRemainingSeconds(session));
   const [marks, setMarks] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem(`marks_${session.id}`) ?? "{}"); }
     catch { return {}; }
   });
   const [showEndModal, setShowEndModal] = useState(true);
   const timerEndedRef = useRef(false);
-  const firingRef = useRef(false);
-  const pendingFireRef = useRef(false);
   const savedMatchRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
   const opNick = role === "host" ? (session.guest_nickname ?? "Opponent") : session.host_nickname;
-  const opRole: PlayerRole = role === "host" ? "guest" : "host";
   const fleet = expandFleet(session.fleet_config ?? DEFAULT_FLEET);
   const gridSize = session.grid_size ?? 10;
   const totalShips = fleet.length;
@@ -54,29 +48,21 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     setLog((l) => [msg, ...l].slice(0, 8));
   }
 
-  // Per-player chess clock countdown
+  // Timer countdown (elapsed since game start, like PR #3)
   useEffect(() => {
-    if (session.status !== "playing" || !isTimedMode(session.game_mode)) return;
+    if (session.status !== "playing" || session.game_mode === "infinite") return;
     timerEndedRef.current = false;
     const tick = setInterval(() => {
-      const me = getStoredRemaining(session, role);
-      const op = getStoredRemaining(session, opRole);
-      setMyClock(me);
-      setOpClock(op);
-      const activeRemaining = session.current_turn === role ? me : op;
-      if (activeRemaining <= 0 && !timerEndedRef.current) {
+      const remaining = getRemainingSeconds(session);
+      setTimeLeft(remaining);
+      if (remaining <= 0 && !timerEndedRef.current) {
         timerEndedRef.current = true;
         clearInterval(tick);
-        endByTimeout(session, session.current_turn);
+        endByTimer(session);
       }
-    }, 250);
+    }, 500);
     return () => clearInterval(tick);
-  }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
-
-  // Clear the pending-fire lock once the session shots update (DB change propagated)
-  useEffect(() => {
-    pendingFireRef.current = false;
-  }, [session.host_shots, session.guest_shots]);
+  }, [session.status, session.started_at, session.id]);
 
   // Persist marks to localStorage
   useEffect(() => {
@@ -103,7 +89,7 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     });
   }, [session.status, session.winner]);
 
-  // Reset end modal when joining a new session
+  // Reset on new session
   useEffect(() => {
     setShowEndModal(true);
     savedMatchRef.current = false;
@@ -190,27 +176,17 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
   const opBoard = { ...opBoardRaw, marks };
   const isMyTurn = session.current_turn === role;
   const mySunk = countSunk(session, role);
-  const opSunkByMe = countSunk(session, opRole);
+  const opSunkByMe = countSunk(session, role === "host" ? "guest" : "host");
 
+  // Simple handleFire — no locking, pure Realtime drives state (PR #3 approach)
   async function handleFire(x: number, y: number) {
     if (!isMyTurn || session.status !== "playing") return;
-    if (firingRef.current || pendingFireRef.current) return;
     const k = cellKey(x, y);
     const myShots = role === "host" ? session.host_shots : session.guest_shots;
     if (myShots[k]) return;
 
-    // firingRef: prevents concurrent async fires
-    // pendingFireRef: prevents a second shot before the session reflects the first one
-    firingRef.current = true;
-    pendingFireRef.current = true;
     const result = await fireShot(session, role, x, y);
-    firingRef.current = false;
-    void refetch?.();
-
-    if (!result) {
-      pendingFireRef.current = false;
-      return;
-    }
+    if (!result) return;
 
     const coord = `${String.fromCharCode(65 + x)}${y + 1}`;
     if (result.outcome === "miss") { sfx.miss(); pushLog(`Miss at ${coord}`); }
@@ -221,7 +197,6 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
       setSunk({ name: result.shipName, side: "enemy" });
     }
     if (result.gameOver) sfx.win();
-    // pendingFireRef stays true until the useEffect clears it when session.shots updates
   }
 
   function toggleMark(x: number, y: number) {
@@ -248,9 +223,7 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
   const winVariant = session.winner === role ? "win" : session.winner === "draw" ? "info" : "lose";
   const winnerNick = session.winner === "host" ? session.host_nickname
     : session.winner === "guest" ? (session.guest_nickname ?? "Opponent") : null;
-
-  const myClockLow = isFinite(myClock) && myClock < 30 && isMyTurn;
-  const opClockLow = isFinite(opClock) && opClock < 30 && !isMyTurn;
+  const timeLow = isFinite(timeLeft) && timeLeft < 30;
 
   return (
     <div className="h-[calc(100vh-80px)] p-4 grid grid-rows-[auto_1fr] gap-4">
@@ -264,26 +237,10 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
           </span>
           <span className="text-xs text-muted-foreground">vs <span className="text-foreground">{opNick}</span></span>
         </div>
-
-        {session.status === "playing" && isTimedMode(session.game_mode) && (
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">{opNick}</div>
-              <div className={`font-display text-sm tabular-nums ${opClockLow ? "neon-enemy animate-pulse-glow" : "text-muted-foreground"}`}>
-                ⏱ {formatTime(opClock)}
-              </div>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <div className="text-[10px] text-muted-foreground font-display uppercase tracking-wider">You</div>
-              <div className={`font-display text-sm tabular-nums ${myClockLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
-                ⏱ {formatTime(myClock)}
-              </div>
-            </div>
-          </div>
-        )}
-        {session.status === "playing" && !isTimedMode(session.game_mode) && (
-          <span className="font-display text-sm text-muted-foreground">∞ Unlimited</span>
+        {session.status === "playing" && (
+          <span className={`font-display text-sm tabular-nums ${timeLow ? "neon-enemy animate-pulse-glow" : "neon-cyan"}`}>
+            ⏱ {formatTime(timeLeft)}
+          </span>
         )}
       </div>
 

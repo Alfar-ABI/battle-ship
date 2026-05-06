@@ -24,9 +24,6 @@ export interface GameSession {
   guest_ready: boolean;
   fleet_config: FleetConfig | null;
   grid_size: number;
-  host_time_left: number | null;
-  guest_time_left: number | null;
-  turn_started_at: string | null;
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
@@ -56,24 +53,11 @@ export function getGameDuration(mode: GameMode): number {
   return Infinity;
 }
 
-export function isTimedMode(mode: GameMode): boolean {
-  return mode !== "infinite";
-}
-
-export function getActiveRemaining(session: GameSession): number {
-  if (!isTimedMode(session.game_mode)) return Infinity;
-  const role = session.current_turn;
-  const stored = role === "host" ? session.host_time_left : session.guest_time_left;
-  const base = stored ?? getGameDuration(session.game_mode);
-  if (session.status !== "playing" || !session.turn_started_at) return base;
-  const elapsed = (Date.now() - new Date(session.turn_started_at).getTime()) / 1000;
-  return Math.max(0, base - elapsed);
-}
-
-export function getStoredRemaining(session: GameSession, role: PlayerRole): number {
-  if (!isTimedMode(session.game_mode)) return Infinity;
-  if (session.current_turn === role) return getActiveRemaining(session);
-  return (role === "host" ? session.host_time_left : session.guest_time_left) ?? getGameDuration(session.game_mode);
+export function getRemainingSeconds(session: GameSession): number {
+  if (session.game_mode === "infinite") return Infinity;
+  if (!session.started_at) return getGameDuration(session.game_mode);
+  const elapsed = (Date.now() - new Date(session.started_at).getTime()) / 1000;
+  return Math.max(0, getGameDuration(session.game_mode) - elapsed);
 }
 
 export async function createSession(
@@ -84,7 +68,6 @@ export async function createSession(
 ): Promise<GameSession | null> {
   const playerId = getOrCreatePlayerId();
   saveNickname(nickname);
-  const initial = isTimedMode(mode) ? getGameDuration(mode) : null;
   const { data, error } = await supabase
     .from("game_sessions")
     .insert({
@@ -94,8 +77,6 @@ export async function createSession(
       status: "waiting",
       fleet_config: (fleetConfig as unknown) ?? null,
       grid_size: gridSize,
-      host_time_left: initial,
-      guest_time_left: initial,
     } as never)
     .select()
     .single();
@@ -149,12 +130,10 @@ export async function submitShips(sessionId: string, role: PlayerRole, ships: Pl
   if (!s) return;
   const bothReady = (role === "host" ? true : s.host_ready) && (role === "guest" ? true : s.guest_ready);
   if (bothReady && s.status === "placing") {
-    const now = new Date().toISOString();
     await supabase.from("game_sessions").update({
       status: "playing",
-      current_turn: "host" as PlayerRole,
-      started_at: now,
-      turn_started_at: now,
+      current_turn: "host",
+      started_at: new Date().toISOString(),
     } as never).eq("id", sessionId);
   }
 }
@@ -184,21 +163,10 @@ export async function fireShot(
   const isGameOver = allSunk(newBoard);
   const nextTurn: PlayerRole = outcome === "miss" ? (role === "host" ? "guest" : "host") : role;
 
-  let hostTL = session.host_time_left;
-  let guestTL = session.guest_time_left;
-  if (isTimedMode(session.game_mode) && session.turn_started_at) {
-    const elapsed = (Date.now() - new Date(session.turn_started_at).getTime()) / 1000;
-    if (role === "host") hostTL = Math.max(0, (hostTL ?? getGameDuration(session.game_mode)) - elapsed);
-    else guestTL = Math.max(0, (guestTL ?? getGameDuration(session.game_mode)) - elapsed);
-  }
-
   const updatePayload: Record<string, unknown> = {
     [shotsField]: newBoard.shots,
     [shipsField]: newBoard.ships,
     current_turn: nextTurn,
-    turn_started_at: new Date().toISOString(),
-    host_time_left: hostTL,
-    guest_time_left: guestTL,
   };
 
   if (isGameOver) {
@@ -207,8 +175,9 @@ export async function fireShot(
     updatePayload.ended_at = new Date().toISOString();
   }
 
-  const { error: updateError } = await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
-  if (updateError) return null;
+  // Use the same pattern as PR #3 — minimal payload, no time fields
+  const { error } = await supabase.from("game_sessions").update(updatePayload as never).eq("id", session.id);
+  if (error) return null;
 
   return {
     outcome,
@@ -218,8 +187,10 @@ export async function fireShot(
   };
 }
 
-export async function endByTimeout(session: GameSession, loser: PlayerRole): Promise<PlayerRole> {
-  const winner: PlayerRole = loser === "host" ? "guest" : "host";
+export async function endByTimer(session: GameSession): Promise<PlayerRole | "draw"> {
+  const hostSunk = (session.guest_ships ?? []).filter((s) => s.hits >= s.size).length;
+  const guestSunk = (session.host_ships ?? []).filter((s) => s.hits >= s.size).length;
+  const winner: PlayerRole | "draw" = hostSunk > guestSunk ? "host" : guestSunk > hostSunk ? "guest" : "draw";
   await supabase
     .from("game_sessions")
     .update({ status: "finished", winner, ended_at: new Date().toISOString() } as never)
@@ -260,26 +231,16 @@ function normalizeSession(raw: Record<string, unknown>): GameSession {
   } as GameSession;
 }
 
+// Pure Realtime subscription — no polling, no refetch (PR #3 approach)
 export function useGameSession(sessionId: string | null) {
   const [session, setSession] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const refetch = useRef(async () => {
-    if (!sessionId) return;
-    const s = await fetchSession(sessionId);
-    if (s) setSession(s);
-  });
-
   useEffect(() => {
     if (!sessionId) return;
     setLoading(true);
     fetchSession(sessionId).then((s) => { setSession(s); setLoading(false); });
-
-    refetch.current = async () => {
-      const s = await fetchSession(sessionId);
-      if (s) setSession(s);
-    };
 
     const channel = supabase
       .channel(`game_session:${sessionId}`)
@@ -291,17 +252,10 @@ export function useGameSession(sessionId: string | null) {
       .subscribe();
 
     channelRef.current = channel;
-
-    // Polling fallback in case Realtime misses updates
-    const poll = setInterval(() => { void refetch.current(); }, 1500);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(poll);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
-  return { session, loading, refetch: refetch.current };
+  return { session, loading };
 }
 
 export function getBoardForRole(session: GameSession, role: PlayerRole): BoardState {
