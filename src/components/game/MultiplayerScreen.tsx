@@ -230,8 +230,8 @@ export function MultiplayerScreen({ session, role }: Props) {
             ))}
           </ul>
           <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1">
-            <div>Enemy sunk: <span className="neon-enemy">{mySunk}/5</span></div>
-            <div>Your losses: <span className="neon-cyan">{opSunkByMe}/5</span></div>
+            <div>Enemy sunk: <span className="neon-enemy">{mySunk}/{(session.guest_ships ?? session.host_ships ?? []).length || "?"}</span></div>
+            <div>Your losses: <span className="neon-cyan">{opSunkByMe}/{(myBoard.ships).length}</span></div>
           </div>
         </section>
 
@@ -241,10 +241,10 @@ export function MultiplayerScreen({ session, role }: Props) {
             {opNick}'s Waters
           </div>
           {isMyTurn && session.status === "playing" && (
-            <div className="absolute top-3 right-3 z-10 font-mono text-[10px] text-muted-foreground">Click to fire</div>
+            <div className="absolute top-3 right-3 z-10 font-mono text-[10px] text-muted-foreground">Click · Right-click to mark</div>
           )}
           <GameBoard3D
-            board={opBoard}
+            board={{ ...opBoard, marks }}
             isEnemy
             revealShips={isOver}
             onCellClick={handleFire}
