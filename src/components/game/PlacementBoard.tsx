@@ -42,7 +42,7 @@ export function PlacementBoard({ onConfirm, fleet }: Props) {
     sfx.place();
     const next = [...ships.filter((s) => s.id !== selectedDef.id), candidate];
     setShips(next);
-    const nextDef = SHIP_DEFS.find((d) => !next.find((s) => s.id === d.id));
+    const nextDef = defs.find((d) => !next.find((s) => s.id === d.id));
     if (nextDef) setSelectedId(nextDef.id);
   }
 
@@ -54,12 +54,12 @@ export function PlacementBoard({ onConfirm, fleet }: Props) {
 
   function doAutoPlace() {
     sfx.place();
-    setShips(autoPlace());
+    setShips(autoPlace(defs));
   }
 
-  function reset() { sfx.click(); setShips([]); setSelectedId(SHIP_DEFS[0].id); }
+  function reset() { sfx.click(); setShips([]); setSelectedId(defs[0].id); }
 
-  const allPlaced = ships.length === SHIP_DEFS.length;
+  const allPlaced = ships.length === defs.length;
 
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-4 h-full">
