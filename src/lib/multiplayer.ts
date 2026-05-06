@@ -170,10 +170,22 @@ export async function fireShot(session: GameSession, role: PlayerRole, x: number
   const isGameOver = allSunk(newBoard);
   const nextTurn: PlayerRole = outcome === "miss" ? (role === "host" ? "guest" : "host") : role;
 
+  // Per-player timer: deduct elapsed turn time from current player's bank.
+  let hostTL = session.host_time_left;
+  let guestTL = session.guest_time_left;
+  if (isTimedMode(session.game_mode) && session.turn_started_at) {
+    const elapsed = (Date.now() - new Date(session.turn_started_at).getTime()) / 1000;
+    if (role === "host") hostTL = Math.max(0, (hostTL ?? getGameDuration(session.game_mode)) - elapsed);
+    else guestTL = Math.max(0, (guestTL ?? getGameDuration(session.game_mode)) - elapsed);
+  }
+
   const updatePayload: Record<string, unknown> = {
     [shotsField]: newBoard.shots,
     [shipsField]: newBoard.ships,
     current_turn: nextTurn,
+    turn_started_at: new Date().toISOString(),
+    host_time_left: hostTL,
+    guest_time_left: guestTL,
   };
 
   if (isGameOver) {
