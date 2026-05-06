@@ -76,9 +76,10 @@ export function getStoredRemaining(session: GameSession, role: PlayerRole): numb
   return (role === "host" ? session.host_time_left : session.guest_time_left) ?? getGameDuration(session.game_mode);
 }
 
-export async function createSession(mode: GameMode, nickname: string): Promise<GameSession | null> {
+export async function createSession(mode: GameMode, nickname: string, fleetConfig?: FleetConfig): Promise<GameSession | null> {
   const playerId = getOrCreatePlayerId();
   saveNickname(nickname);
+  const initial = isTimedMode(mode) ? getGameDuration(mode) : null;
   const { data, error } = await supabase
     .from("game_sessions")
     .insert({
@@ -86,7 +87,10 @@ export async function createSession(mode: GameMode, nickname: string): Promise<G
       host_nickname: nickname || "Commander",
       game_mode: mode,
       status: "waiting",
-    })
+      fleet_config: (fleetConfig as unknown) ?? null,
+      host_time_left: initial,
+      guest_time_left: initial,
+    } as never)
     .select()
     .single();
   if (error || !data) return null;
