@@ -3,13 +3,40 @@ export const BOARD_SIZE = 10;
 export type ShipId = "carrier" | "battleship" | "destroyer" | "submarine" | "patrol";
 export type Orientation = "h" | "v";
 
-export const SHIP_DEFS: { id: ShipId; name: string; size: number }[] = [
+export interface ShipDef { id: ShipId; name: string; size: number }
+
+export const SHIP_TYPES: ShipDef[] = [
   { id: "carrier", name: "Carrier", size: 5 },
   { id: "battleship", name: "Battleship", size: 4 },
   { id: "destroyer", name: "Destroyer", size: 3 },
   { id: "submarine", name: "Submarine", size: 3 },
   { id: "patrol", name: "Patrol Boat", size: 2 },
 ];
+
+export type FleetConfig = Partial<Record<ShipId, number>>;
+
+export const DEFAULT_FLEET: FleetConfig = {
+  carrier: 1, battleship: 1, destroyer: 1, submarine: 1, patrol: 1,
+};
+
+/** Expand a fleet config into one ShipDef per ship instance, with unique ids. */
+export function expandFleet(config: FleetConfig = DEFAULT_FLEET): ShipDef[] {
+  const out: ShipDef[] = [];
+  for (const t of SHIP_TYPES) {
+    const n = config[t.id] ?? 0;
+    for (let i = 0; i < n; i++) {
+      out.push({ id: (n > 1 ? `${t.id}_${i}` : t.id) as ShipId, name: n > 1 ? `${t.name} ${i + 1}` : t.name, size: t.size });
+    }
+  }
+  return out;
+}
+
+export function fleetTotal(config: FleetConfig): number {
+  return SHIP_TYPES.reduce((s, t) => s + (config[t.id] ?? 0), 0);
+}
+
+/** Back-compat default fleet (one of each). */
+export const SHIP_DEFS: ShipDef[] = expandFleet(DEFAULT_FLEET);
 
 export interface PlacedShip {
   id: ShipId;
