@@ -1,6 +1,7 @@
 export const BOARD_SIZE = 10;
 
-export type ShipId = "carrier" | "battleship" | "destroyer" | "submarine" | "patrol";
+export type ShipKind = "carrier" | "battleship" | "destroyer" | "submarine" | "patrol";
+export type ShipId = string;
 export type Orientation = "h" | "v";
 
 export interface ShipDef { id: ShipId; name: string; size: number }
