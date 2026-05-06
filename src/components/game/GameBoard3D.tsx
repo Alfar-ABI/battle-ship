@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Text } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { BoardState, PlacedShip } from "@/lib/game/types";
@@ -207,6 +207,28 @@ function GridLines({ boardSize }: { boardSize: number }) {
   );
 }
 
+function makeLabel(text: string): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64; canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "rgba(58,216,255,0.95)";
+  ctx.font = "bold 38px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, 32, 34);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function AxisLabel({ position, text }: { position: [number, number, number]; text: string }) {
+  const texture = useMemo(() => makeLabel(text), [text]);
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[0.48, 0.48]} />
+      <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
 function AxisLabels({ boardSize }: { boardSize: number }) {
   const half = (boardSize * CELL) / 2;
   const offset = half - CELL / 2;
@@ -218,12 +240,8 @@ function AxisLabels({ boardSize }: { boardSize: number }) {
         const pos = i * CELL - offset;
         return (
           <group key={i}>
-            <Text position={[pos, 0.05, edgeZ]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.3} color="#3ad8ff" anchorX="center" anchorY="middle">
-              {i.toString()}
-            </Text>
-            <Text position={[edgeX, 0.05, pos]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.3} color="#3ad8ff" anchorX="center" anchorY="middle">
-              {String.fromCharCode(65 + i)}
-            </Text>
+            <AxisLabel position={[pos, 0.05, edgeZ]} text={i.toString()} />
+            <AxisLabel position={[edgeX, 0.05, pos]} text={String.fromCharCode(65 + i)} />
           </group>
         );
       })}

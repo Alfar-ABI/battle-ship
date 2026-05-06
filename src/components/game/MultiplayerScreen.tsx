@@ -11,6 +11,8 @@ import {
   getActiveRemaining, getStoredRemaining, isTimedMode,
   fireShot, endByTimeout, submitShips,
 } from "@/lib/multiplayer";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   session: GameSession;
@@ -25,6 +27,7 @@ function formatTime(secs: number): string {
 }
 
 export function MultiplayerScreen({ session, role }: Props) {
+  const { user } = useAuth();
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
   const [myClock, setMyClock] = useState(getStoredRemaining(session, role));
@@ -33,7 +36,10 @@ export function MultiplayerScreen({ session, role }: Props) {
     try { return JSON.parse(localStorage.getItem(`marks_${session.id}`) ?? "{}"); }
     catch { return {}; }
   });
+  const [showEndModal, setShowEndModal] = useState(true);
   const timerEndedRef = useRef(false);
+  const firingRef = useRef(false);
+  const savedMatchRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
   const opNick = role === "host" ? (session.guest_nickname ?? "Opponent") : session.host_nickname;
@@ -69,6 +75,32 @@ export function MultiplayerScreen({ session, role }: Props) {
   useEffect(() => {
     localStorage.setItem(`marks_${session.id}`, JSON.stringify(marks));
   }, [marks, session.id]);
+
+  // Record match in stats when game finishes
+  useEffect(() => {
+    if (session.status !== "finished" || savedMatchRef.current || !user) return;
+    savedMatchRef.current = true;
+    const myShots = role === "host" ? session.host_shots : session.guest_shots;
+    const opShips = (role === "host" ? session.guest_ships : session.host_ships) ?? [];
+    const shipsDestroyed = (opShips as any[]).filter((s) => s.hits >= s.size).length;
+    const duration = session.started_at
+      ? Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000)
+      : 0;
+    void supabase.from("matches").insert({
+      user_id: user.id,
+      result: session.winner === role ? "win" : "loss",
+      difficulty: "player",
+      ships_destroyed: shipsDestroyed,
+      shots_fired: Object.keys(myShots).length,
+      duration_seconds: duration,
+    });
+  }, [session.status, session.winner]);
+
+  // Reset end modal when joining a new session
+  useEffect(() => {
+    setShowEndModal(true);
+    savedMatchRef.current = false;
+  }, [session.id]);
 
   // Update log when turn changes
   useEffect(() => {
@@ -154,12 +186,14 @@ export function MultiplayerScreen({ session, role }: Props) {
   const opSunkByMe = countSunk(session, opRole);
 
   async function handleFire(x: number, y: number) {
-    if (!isMyTurn || session.status !== "playing") return;
+    if (!isMyTurn || session.status !== "playing" || firingRef.current) return;
     const k = cellKey(x, y);
     const myShots = role === "host" ? session.host_shots : session.guest_shots;
     if (myShots[k]) return;
 
+    firingRef.current = true;
     const result = await fireShot(session, role, x, y);
+    firingRef.current = false;
     if (!result) return;
 
     const coord = `${String.fromCharCode(65 + x)}${y + 1}`;
@@ -280,11 +314,16 @@ export function MultiplayerScreen({ session, role }: Props) {
       <SunkBanner shipName={sunk?.name ?? null} side={sunk?.side ?? "enemy"} />
 
       <CyberModal
-        open={isOver}
+        open={isOver && showEndModal}
         variant={winVariant}
         title={winText}
         onClose={() => {}}
-        actions={<a className="btn-cyber" href="/play">New Battle</a>}
+        actions={
+          <>
+            <button className="btn-cyber" onClick={() => setShowEndModal(false)}>View Boards</button>
+            <a className="btn-cyber" href="/play">New Battle</a>
+          </>
+        }
       >
         {session.winner === "draw"
           ? "Both fleets equally battered. A strategic draw."
@@ -295,6 +334,13 @@ export function MultiplayerScreen({ session, role }: Props) {
           Enemy ships sunk: {mySunk}/{totalShips} · Your losses: {opSunkByMe}/{totalShips}
         </div>
       </CyberModal>
+
+      {isOver && !showEndModal && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass px-6 py-3 flex items-center gap-4">
+          <span className="font-display text-sm uppercase tracking-widest" style={{ color: winVariant === "win" ? "var(--cyan)" : "var(--enemy)" }}>{winText}</span>
+          <a className="btn-cyber text-xs" href="/play">New Battle</a>
+        </div>
+      )}
     </div>
   );
 }

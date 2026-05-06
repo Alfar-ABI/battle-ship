@@ -34,6 +34,7 @@ export function MpRoomScreen({ room, playerId }: Props) {
   });
   const [clocks, setClocks] = useState<Record<string, number | null>>({});
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [showEndModal, setShowEndModal] = useState(true);
   const timerEndedRef = useRef(false);
 
   const me = room.players.find((p) => p.player_id === playerId);
@@ -399,11 +400,16 @@ export function MpRoomScreen({ room, playerId }: Props) {
       <SunkBanner shipName={sunk?.name ?? null} side={sunk?.side ?? "enemy"} />
 
       <CyberModal
-        open={isOver}
+        open={isOver && showEndModal}
         variant={isWinner ? "win" : isDraw ? "info" : "lose"}
         title={isWinner ? "Victory!" : isDraw ? "Draw" : "Defeated"}
         onClose={() => {}}
-        actions={<a className="btn-cyber" href="/play">New Battle</a>}
+        actions={
+          <>
+            <button className="btn-cyber" onClick={() => setShowEndModal(false)}>View Boards</button>
+            <a className="btn-cyber" href="/play">New Battle</a>
+          </>
+        }
       >
         {isDraw
           ? "All fleets equally battered. Strategic draw."
@@ -411,6 +417,15 @@ export function MpRoomScreen({ room, playerId }: Props) {
             ? "Your fleet stands alone. Command salutes you."
             : `${winnerPlayer?.nickname ?? "Opponent"} prevails.`}
       </CyberModal>
+
+      {isOver && !showEndModal && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass px-6 py-3 flex items-center gap-4">
+          <span className="font-display text-sm uppercase tracking-widest" style={{ color: isWinner ? "var(--cyan)" : "var(--enemy)" }}>
+            {isWinner ? "Victory" : isDraw ? "Draw" : "Defeated"}
+          </span>
+          <a className="btn-cyber text-xs" href="/play">New Battle</a>
+        </div>
+      )}
     </div>
   );
 }

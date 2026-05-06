@@ -159,6 +159,7 @@ export type Database = {
           wins: number
           losses: number
           games: number
+          score: number
           updated_at: string
         }
         Insert: {
@@ -167,6 +168,7 @@ export type Database = {
           wins?: number
           losses?: number
           games?: number
+          score?: number
           updated_at?: string
         }
         Update: {
@@ -175,6 +177,7 @@ export type Database = {
           wins?: number
           losses?: number
           games?: number
+          score?: number
           updated_at?: string
         }
         Relationships: []

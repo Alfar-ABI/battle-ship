@@ -1,0 +1,2 @@
+ALTER TABLE public.leaderboard
+  ADD COLUMN IF NOT EXISTS score integer NOT NULL DEFAULT 0;

@@ -10,6 +10,7 @@ import { aiMove, aiPostShot, createAI, type Difficulty } from "@/lib/game/ai";
 import { sfx } from "@/lib/sound";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { getOrCreatePlayerId, getSavedNickname, upsertLeaderboard } from "@/lib/multiplayer";
 
 type Phase = "setup" | "playing" | "over";
 
@@ -24,6 +25,7 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
   const [modal, setModal] = useState<{
     variant: "info" | "win" | "lose" | "danger"; title: string; body?: string;
   } | null>(null);
+  const [boardsRevealed, setBoardsRevealed] = useState(false);
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [shotsFired, setShotsFired] = useState(0);
   const startTime = useRef<number>(0);
@@ -40,6 +42,7 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
     savedRef.current = false;
     startTime.current = Date.now();
     setSunk(null);
+    setBoardsRevealed(false);
     setPhase("playing");
   }
 
@@ -48,19 +51,25 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
   }
 
   async function recordMatch(result: "win" | "loss") {
-    if (!user || savedRef.current) return;
+    if (savedRef.current) return;
     savedRef.current = true;
-    const shipsDestroyed = result === "win"
-      ? enemy.ships.filter((s) => s.hits >= s.size).length
-      : enemy.ships.filter((s) => s.hits >= s.size).length;
-    await supabase.from("matches").insert({
-      user_id: user.id,
-      result,
-      difficulty,
-      ships_destroyed: shipsDestroyed,
-      shots_fired: shotsFired,
-      duration_seconds: Math.floor((Date.now() - startTime.current) / 1000),
-    });
+    const shipsDestroyed = enemy.ships.filter((s) => s.hits >= s.size).length;
+    if (user) {
+      await supabase.from("matches").insert({
+        user_id: user.id,
+        result,
+        difficulty,
+        ships_destroyed: shipsDestroyed,
+        shots_fired: shotsFired,
+        duration_seconds: Math.floor((Date.now() - startTime.current) / 1000),
+      });
+    }
+    if (result === "win") {
+      const score = difficulty === "easy" ? 25 : difficulty === "medium" ? 50 : 100;
+      const playerId = getOrCreatePlayerId();
+      const nick = getSavedNickname() || (user?.email?.split("@")[0] ?? "Commander");
+      void upsertLeaderboard(playerId, nick, "win", score);
+    }
   }
 
   function playerFire(x: number, y: number) {
@@ -206,13 +215,14 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
       <SunkBanner shipName={sunk?.name ?? null} side={sunk?.side ?? "enemy"} />
 
       <CyberModal
-        open={!!modal}
+        open={!!modal && !boardsRevealed}
         variant={modal?.variant ?? "info"}
         title={modal?.title ?? ""}
         onClose={() => phase === "over" ? null : setModal(null)}
         actions={
           phase === "over" ? (
             <>
+              <button className="btn-cyber" onClick={() => setBoardsRevealed(true)}>View Boards</button>
               <button className="btn-cyber" onClick={() => { setModal(null); setPhase("setup"); }}>New Battle</button>
               <a className="btn-danger" href="/stats">View Stats</a>
             </>
@@ -221,6 +231,13 @@ export function GameScreen({ onBack }: { onBack?: () => void }) {
       >
         {modal?.body}
       </CyberModal>
+
+      {phase === "over" && boardsRevealed && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass px-6 py-3 flex items-center gap-4">
+          <button className="btn-cyber text-xs" onClick={() => { setModal(null); setPhase("setup"); }}>New Battle</button>
+          <a className="btn-danger text-xs" href="/stats">View Stats</a>
+        </div>
+      )}
     </div>
   );
 }
