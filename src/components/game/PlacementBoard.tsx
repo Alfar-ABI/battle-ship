@@ -86,7 +86,7 @@ export function PlacementBoard({ onConfirm, fleet }: Props) {
         </div>
 
         <ul className="space-y-2">
-          {SHIP_DEFS.map((d) => {
+          {defs.map((d) => {
             const placed = ships.find((s) => s.id === d.id);
             const active = selectedId === d.id;
             return (
