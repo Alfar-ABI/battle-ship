@@ -70,18 +70,31 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
   const nav = useNavigate();
   const [nickname, setNickname] = useState(getSavedNickname());
   const [gameMode, setGameMode] = useState<GameMode>("10min");
+  const [customFleet, setCustomFleet] = useState(false);
+  const [fleet, setFleet] = useState<FleetConfig>({ ...DEFAULT_FLEET });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const total = fleetTotal(fleet);
+
+  function setShipCount(kind: ShipKind, n: number) {
+    sfx.click();
+    setFleet((f) => ({ ...f, [kind]: Math.max(0, Math.min(5, n)) }));
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     sfx.click();
+    if (customFleet && total === 0) {
+      setError("Your fleet must have at least one ship.");
+      return;
+    }
     setCreating(true);
     setError(null);
     const nick = nickname.trim() || "Commander";
     saveNickname(nick);
-    getOrCreatePlayerId(); // ensure ID exists
-    const session = await createSession(gameMode, nick);
+    getOrCreatePlayerId();
+    const session = await createSession(gameMode, nick, customFleet ? fleet : DEFAULT_FLEET);
     setCreating(false);
     if (!session) { setError("Failed to create session. Try again."); return; }
     nav({ to: "/mp/$sessionId", params: { sessionId: session.id } });
@@ -89,7 +102,7 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
-      <div className="glass max-w-md w-full p-8 space-y-6">
+      <div className="glass max-w-md w-full p-8 space-y-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center gap-3">
           <button onClick={() => { sfx.click(); onBack(); }} className="text-muted-foreground hover:text-foreground text-sm">← Back</button>
           <h2 className="font-display text-xl uppercase tracking-widest neon-cyan">New Multiplayer Battle</h2>
@@ -110,26 +123,68 @@ function CreateMultiplayer({ onBack }: { onBack: () => void }) {
           </div>
 
           <div>
-            <label className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 block">Game Duration</label>
-            <div className="flex gap-3">
-              {(["4min", "10min"] as GameMode[]).map((m) => (
+            <label className="text-xs font-display uppercase tracking-widest text-muted-foreground mb-2 block">Per-Player Time Bank</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["4min", "10min", "infinite"] as GameMode[]).map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => { sfx.click(); setGameMode(m); }}
-                  className={`flex-1 py-2.5 rounded-md text-sm font-display uppercase tracking-widest border transition ${
+                  className={`py-2.5 rounded-md text-xs font-display uppercase tracking-widest border transition ${
                     gameMode === m
                       ? "border-[var(--cyan)] text-[var(--cyan)] bg-[var(--cyan)]/10"
                       : "border-border text-muted-foreground"
                   }`}
                 >
-                  {m === "4min" ? "4 Minutes" : "10 Minutes"}
+                  {m === "4min" ? "4 Min" : m === "10min" ? "10 Min" : "∞ Untimed"}
                 </button>
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              When time runs out, the player with more enemy ships sunk wins.
+              {gameMode === "infinite"
+                ? "No time limit. Game ends when one fleet is destroyed."
+                : "Each player has their own clock that only ticks on their turn. Run out of time and you lose."}
             </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-display uppercase tracking-widest text-muted-foreground">Fleet Configuration</label>
+              <button
+                type="button"
+                onClick={() => { sfx.click(); setCustomFleet((c) => !c); }}
+                className={`text-[10px] font-display uppercase tracking-widest px-2 py-1 rounded border transition ${
+                  customFleet ? "border-[var(--cyan)] text-[var(--cyan)]" : "border-border text-muted-foreground"
+                }`}
+              >
+                {customFleet ? "Custom" : "Standard"}
+              </button>
+            </div>
+            {customFleet ? (
+              <div className="space-y-2">
+                {SHIP_TYPES.map((t) => {
+                  const n = fleet[t.id] ?? 0;
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 px-3 py-2 rounded-md border border-border">
+                      <div className="flex-1">
+                        <div className="font-display text-xs uppercase tracking-wider">{t.name}</div>
+                        <div className="text-[10px] text-muted-foreground">size {t.size}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setShipCount(t.id, n - 1)} className="w-7 h-7 rounded border border-border text-sm">−</button>
+                        <span className="w-6 text-center font-display tabular-nums">{n}</span>
+                        <button type="button" onClick={() => setShipCount(t.id, n + 1)} className="w-7 h-7 rounded border border-border text-sm">+</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="text-[10px] text-muted-foreground text-right">
+                  Total ships: <span className="text-foreground">{total}</span> (0–5 of each)
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Standard fleet: 1 of each ship (5 total).</p>
+            )}
           </div>
 
           {error && <p className="text-xs text-[var(--enemy)]">{error}</p>}
