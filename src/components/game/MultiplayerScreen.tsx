@@ -38,8 +38,9 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     catch { return {}; }
   });
   const [showEndModal, setShowEndModal] = useState(true);
-  const [firing, setFiring] = useState(false);
   const timerEndedRef = useRef(false);
+  const firingRef = useRef(false);
+  const pendingFireRef = useRef(false);
   const savedMatchRef = useRef(false);
 
   const myNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Guest");
@@ -72,9 +73,9 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
     return () => clearInterval(tick);
   }, [session.status, session.turn_started_at, session.current_turn, session.id, session.game_mode, role, opRole]);
 
-  // Release the firing lock once the DB change comes back through Realtime/polling
+  // Clear the pending-fire lock once the session shots update (DB change propagated)
   useEffect(() => {
-    setFiring(false);
+    pendingFireRef.current = false;
   }, [session.host_shots, session.guest_shots]);
 
   // Persist marks to localStorage
@@ -192,19 +193,22 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
   const opSunkByMe = countSunk(session, opRole);
 
   async function handleFire(x: number, y: number) {
-    if (!isMyTurn || session.status !== "playing" || firing) return;
+    if (!isMyTurn || session.status !== "playing") return;
+    if (firingRef.current || pendingFireRef.current) return;
     const k = cellKey(x, y);
     const myShots = role === "host" ? session.host_shots : session.guest_shots;
     if (myShots[k]) return;
 
-    // Lock immediately (React state → causes re-render → blocks further clicks)
-    setFiring(true);
+    // firingRef: prevents concurrent async fires
+    // pendingFireRef: prevents a second shot before the session reflects the first one
+    firingRef.current = true;
+    pendingFireRef.current = true;
     const result = await fireShot(session, role, x, y);
+    firingRef.current = false;
     void refetch?.();
 
     if (!result) {
-      // DB write failed — release the lock so they can try again
-      setFiring(false);
+      pendingFireRef.current = false;
       return;
     }
 
@@ -217,7 +221,7 @@ export function MultiplayerScreen({ session, role, refetch }: Props) {
       setSunk({ name: result.shipName, side: "enemy" });
     }
     if (result.gameOver) sfx.win();
-    // firing stays true until the useEffect above sees the session shots update
+    // pendingFireRef stays true until the useEffect clears it when session.shots updates
   }
 
   function toggleMark(x: number, y: number) {
