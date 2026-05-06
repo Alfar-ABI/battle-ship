@@ -341,8 +341,19 @@ export function getRoomBoardForPlayer(room: MpRoom, playerId: string): BoardStat
 
 export function getRoomOpponentBoard(room: MpRoom, attackerId: string, defenderId: string): BoardState {
   const defShips = room.ships[defenderId] ?? [];
-  const myShots = room.shots[attackerId]?.[defenderId] ?? {};
-  return { ships: defShips, shots: myShots };
+  // Merge shots from ALL attackers so every player sees the full board state
+  const allShots: Record<string, "hit" | "miss"> = {};
+  for (const p of room.players) {
+    if (p.player_id === defenderId) continue;
+    for (const [k, v] of Object.entries(room.shots[p.player_id]?.[defenderId] ?? {})) {
+      allShots[k] = v;
+    }
+  }
+  // My own shots take precedence (for accurate display of my marks)
+  for (const [k, v] of Object.entries(room.shots[attackerId]?.[defenderId] ?? {})) {
+    allShots[k] = v;
+  }
+  return { ships: defShips, shots: allShots };
 }
 
 function normalizeRoom(raw: Record<string, unknown>): MpRoom {
