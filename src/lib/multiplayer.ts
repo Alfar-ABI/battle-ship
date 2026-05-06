@@ -213,8 +213,8 @@ export async function fireShot(
     const winnerNick = role === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
     const loserId = role === "host" ? session.guest_player_id : session.host_player_id;
     const loserNick = role === "host" ? (session.guest_nickname ?? "Commander") : session.host_nickname;
-    if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win");
-    if (loserId) void upsertLeaderboard(loserId, loserNick, "loss");
+    if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win", 100);
+    if (loserId) void upsertLeaderboard(loserId, loserNick, "loss", 0);
   }
 
   return {
@@ -236,13 +236,13 @@ export async function endByTimeout(session: GameSession, loser: PlayerRole): Pro
   const winnerNick = winner === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
   const loserId = loser === "host" ? session.host_player_id : session.guest_player_id;
   const loserNick = loser === "host" ? session.host_nickname : (session.guest_nickname ?? "Commander");
-  if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win");
-  if (loserId) void upsertLeaderboard(loserId, loserNick, "loss");
+  if (winnerId) void upsertLeaderboard(winnerId, winnerNick, "win", 100);
+  if (loserId) void upsertLeaderboard(loserId, loserNick, "loss", 0);
 
   return winner;
 }
 
-async function upsertLeaderboard(playerId: string, nickname: string, result: "win" | "loss") {
+export async function upsertLeaderboard(playerId: string, nickname: string, result: "win" | "loss", score = 0) {
   const { data } = await supabase.from("leaderboard").select().eq("player_id", playerId).single();
   if (data) {
     await supabase.from("leaderboard").update({
@@ -250,6 +250,7 @@ async function upsertLeaderboard(playerId: string, nickname: string, result: "wi
       wins: ((data as any).wins ?? 0) + (result === "win" ? 1 : 0),
       losses: ((data as any).losses ?? 0) + (result === "loss" ? 1 : 0),
       games: ((data as any).games ?? 0) + 1,
+      score: ((data as any).score ?? 0) + score,
       updated_at: new Date().toISOString(),
     }).eq("player_id", playerId);
   } else {
@@ -259,6 +260,7 @@ async function upsertLeaderboard(playerId: string, nickname: string, result: "wi
       wins: result === "win" ? 1 : 0,
       losses: result === "loss" ? 1 : 0,
       games: 1,
+      score,
     });
   }
 }
