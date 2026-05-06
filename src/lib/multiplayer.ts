@@ -141,7 +141,12 @@ export async function submitShips(sessionId: string, role: PlayerRole, ships: Pl
   if (!s) return;
   const bothReady = (role === "host" ? true : s.host_ready) && (role === "guest" ? true : s.guest_ready);
   if (bothReady && s.status === "placing") {
-    await supabase.from("game_sessions").update({ status: "playing", started_at: new Date().toISOString() }).eq("id", sessionId);
+    const now = new Date().toISOString();
+    await supabase.from("game_sessions").update({
+      status: "playing",
+      started_at: now,
+      turn_started_at: now,
+    } as never).eq("id", sessionId);
   }
 }
 
