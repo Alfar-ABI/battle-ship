@@ -50,13 +50,30 @@ export function saveNickname(name: string) {
 }
 
 export function getGameDuration(mode: GameMode): number {
-  return mode === "4min" ? 240 : 600;
+  if (mode === "4min") return 240;
+  if (mode === "10min") return 600;
+  return Infinity;
 }
 
-export function getRemainingSeconds(session: GameSession): number {
-  if (!session.started_at) return getGameDuration(session.game_mode);
-  const elapsed = (Date.now() - new Date(session.started_at).getTime()) / 1000;
-  return Math.max(0, getGameDuration(session.game_mode) - elapsed);
+export function isTimedMode(mode: GameMode): boolean {
+  return mode !== "infinite";
+}
+
+/** Compute live remaining seconds for the player whose turn it is. */
+export function getActiveRemaining(session: GameSession): number {
+  if (!isTimedMode(session.game_mode)) return Infinity;
+  const role = session.current_turn;
+  const stored = role === "host" ? session.host_time_left : session.guest_time_left;
+  const base = stored ?? getGameDuration(session.game_mode);
+  if (session.status !== "playing" || !session.turn_started_at) return base;
+  const elapsed = (Date.now() - new Date(session.turn_started_at).getTime()) / 1000;
+  return Math.max(0, base - elapsed);
+}
+
+export function getStoredRemaining(session: GameSession, role: PlayerRole): number {
+  if (!isTimedMode(session.game_mode)) return Infinity;
+  if (session.current_turn === role) return getActiveRemaining(session);
+  return (role === "host" ? session.host_time_left : session.guest_time_left) ?? getGameDuration(session.game_mode);
 }
 
 export async function createSession(mode: GameMode, nickname: string): Promise<GameSession | null> {
