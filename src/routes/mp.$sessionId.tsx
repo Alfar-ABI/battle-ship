@@ -15,7 +15,7 @@ export const Route = createFileRoute("/mp/$sessionId")({
 
 function MultiplayerPage() {
   const { sessionId } = Route.useParams();
-  const { session, loading } = useGameSession(sessionId);
+  const { session, loading, refetch } = useGameSession(sessionId);
   const [role, setRole] = useState<PlayerRole | null>(null);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -113,5 +113,5 @@ function MultiplayerPage() {
 
   if (!role) return <div className="p-10 text-muted-foreground text-sm">Synchronising…</div>;
 
-  return <MultiplayerScreen session={session} role={role} />;
+  return <MultiplayerScreen session={session} role={role} refetch={refetch} />;
 }

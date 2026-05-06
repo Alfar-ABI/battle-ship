@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface Props {
   session: GameSession;
   role: PlayerRole;
+  refetch?: () => Promise<void>;
 }
 
 function formatTime(secs: number): string {
@@ -26,7 +27,7 @@ function formatTime(secs: number): string {
   return `${m}:${s}`;
 }
 
-export function MultiplayerScreen({ session, role }: Props) {
+export function MultiplayerScreen({ session, role, refetch }: Props) {
   const { user } = useAuth();
   const [sunk, setSunk] = useState<{ name: string; side: "enemy" | "player" } | null>(null);
   const [log, setLog] = useState<string[]>(["Connection established. Awaiting opponent."]);
@@ -193,6 +194,7 @@ export function MultiplayerScreen({ session, role }: Props) {
 
     firingRef.current = true;
     const result = await fireShot(session, role, x, y);
+    void refetch?.();
     firingRef.current = false;
     if (!result) return;
 
