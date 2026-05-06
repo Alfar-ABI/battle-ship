@@ -21,7 +21,6 @@ export const DEFAULT_FLEET: FleetConfig = {
   carrier: 1, battleship: 1, destroyer: 1, submarine: 1, patrol: 1,
 };
 
-/** Expand a fleet config into one ShipDef per ship instance, with unique ids. */
 export function expandFleet(config: FleetConfig = DEFAULT_FLEET): ShipDef[] {
   const out: ShipDef[] = [];
   for (const t of SHIP_TYPES) {
@@ -37,15 +36,14 @@ export function fleetTotal(config: FleetConfig): number {
   return SHIP_TYPES.reduce((s, t) => s + (config[t.id] ?? 0), 0);
 }
 
-/** Back-compat default fleet (one of each). */
 export const SHIP_DEFS: ShipDef[] = expandFleet(DEFAULT_FLEET);
 
 export interface PlacedShip {
   id: ShipId;
   name: string;
   size: number;
-  x: number; // top-left col
-  y: number; // top-left row
+  x: number;
+  y: number;
   orientation: Orientation;
   hits: number;
 }
@@ -54,8 +52,8 @@ export type CellState = "empty" | "miss" | "hit" | "sunk";
 
 export interface BoardState {
   ships: PlacedShip[];
-  shots: Record<string, "miss" | "hit">; // key "x,y"
-  marks?: Record<string, boolean>; // user "no-ship" guess marks
+  shots: Record<string, "miss" | "hit">;
+  marks?: Record<string, boolean>;
 }
 
 export const cellKey = (x: number, y: number) => `${x},${y}`;
@@ -73,13 +71,13 @@ export function shipCells(s: PlacedShip): { x: number; y: number }[] {
 
 export function isValidPlacement(
   ships: PlacedShip[],
-  candidate: PlacedShip
+  candidate: PlacedShip,
+  boardSize = BOARD_SIZE,
 ): boolean {
   const cells = shipCells(candidate);
   for (const c of cells) {
-    if (c.x < 0 || c.y < 0 || c.x >= BOARD_SIZE || c.y >= BOARD_SIZE) return false;
+    if (c.x < 0 || c.y < 0 || c.x >= boardSize || c.y >= boardSize) return false;
   }
-  // Build occupied + buffer (1-cell halo) of all OTHER ships
   const blocked = new Set<string>();
   for (const s of ships) {
     if (s.id === candidate.id) continue;
@@ -95,16 +93,16 @@ export function isValidPlacement(
   return true;
 }
 
-export function autoPlace(defs: ShipDef[] = SHIP_DEFS): PlacedShip[] {
+export function autoPlace(defs: ShipDef[] = SHIP_DEFS, boardSize = BOARD_SIZE): PlacedShip[] {
   const ships: PlacedShip[] = [];
   for (const def of defs) {
     let tries = 0;
     while (tries++ < 500) {
       const orientation: Orientation = Math.random() < 0.5 ? "h" : "v";
-      const x = Math.floor(Math.random() * BOARD_SIZE);
-      const y = Math.floor(Math.random() * BOARD_SIZE);
+      const x = Math.floor(Math.random() * boardSize);
+      const y = Math.floor(Math.random() * boardSize);
       const s: PlacedShip = { ...def, x, y, orientation, hits: 0 };
-      if (isValidPlacement(ships, s)) {
+      if (isValidPlacement(ships, s, boardSize)) {
         ships.push(s);
         break;
       }
@@ -128,11 +126,10 @@ export function allSunk(board: BoardState): boolean {
   return board.ships.every(isSunk);
 }
 
-/** returns updated board + outcome. Mutates a copy. */
 export function fireAt(
   board: BoardState,
   x: number,
-  y: number
+  y: number,
 ): { board: BoardState; outcome: "miss" | "hit" | "sunk"; ship?: PlacedShip } {
   const k = cellKey(x, y);
   if (board.shots[k]) return { board, outcome: board.shots[k] === "hit" ? "hit" : "miss" };

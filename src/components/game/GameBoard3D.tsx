@@ -3,7 +3,7 @@ import { OrbitControls } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { BoardState, PlacedShip } from "@/lib/game/types";
-import { BOARD_SIZE, cellKey, shipCells } from "@/lib/game/types";
+import { cellKey, shipCells } from "@/lib/game/types";
 
 interface BoardProps {
   board: BoardState;
@@ -14,17 +14,18 @@ interface BoardProps {
   onCellHover?: (x: number, y: number | null) => void;
   hoverCell?: { x: number; y: number } | null;
   hoverPreview?: { cells: { x: number; y: number }[]; valid: boolean } | null;
+  boardSize?: number;
+  playerColor?: string; // hex color for this player's ships/accents
 }
 
 const CELL = 1;
-const OFFSET = (BOARD_SIZE * CELL) / 2 - CELL / 2;
 
-function gridPos(x: number, y: number): [number, number, number] {
+function gridPos(x: number, y: number, boardSize: number): [number, number, number] {
+  const OFFSET = (boardSize * CELL) / 2 - CELL / 2;
   return [x - OFFSET, 0, y - OFFSET];
 }
 
-/** Detailed low-poly ship: hull + pointed bow + stern + bridge tower + turrets/funnels */
-function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk: boolean }) {
+function ShipMesh({ ship, color, sunk, boardSize }: { ship: PlacedShip; color: string; sunk: boolean; boardSize: number }) {
   const cells = shipCells(ship);
   const start = cells[0];
   const end = cells[cells.length - 1];
@@ -34,55 +35,41 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
   const wid = CELL * 0.5;
   const rotY = ship.orientation === "h" ? 0 : Math.PI / 2;
 
-  const hullColor = sunk ? "#3a3a3a" : color;
-  const deckColor = "#1a2740";
-  const accentEmissive = sunk ? 0.05 : 1.4;
-
-  // Number of turrets/funnels scales with size
+  const hullColor = sunk ? "#5a5858" : color;
+  const deckColor = "#0b1220";
+  const accentEmissive = sunk ? 0.22 : 0.75;
   const turretCount = Math.max(1, ship.size - 2);
 
   return (
-    <group position={gridPos(cx, cy)} rotation={[0, rotY, 0]}>
-      {/* Main hull (slightly tapered using box) */}
+    <group position={gridPos(cx, cy, boardSize)} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.12, 0]} castShadow>
         <boxGeometry args={[len * 0.78, 0.18, wid]} />
-        <meshStandardMaterial color={hullColor} metalness={0.55} roughness={0.3} emissive={color} emissiveIntensity={sunk ? 0.05 : 0.9} toneMapped={false} />
+        <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} emissive={color} emissiveIntensity={accentEmissive * 0.55} toneMapped={false} />
       </mesh>
-
-      {/* Bow (pointed front) */}
       <mesh position={[len * 0.39 + len * 0.06, 0.12, 0]} rotation={[0, 0, -Math.PI / 2]}>
         <coneGeometry args={[wid / 2, len * 0.22, 4]} />
         <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} />
       </mesh>
-
-      {/* Stern (squared back, smaller) */}
       <mesh position={[-len * 0.39 - len * 0.03, 0.12, 0]}>
         <boxGeometry args={[len * 0.06, 0.18, wid * 0.85]} />
         <meshStandardMaterial color={hullColor} metalness={0.75} roughness={0.35} />
       </mesh>
-
-      {/* Deck plate */}
       <mesh position={[0, 0.22, 0]}>
         <boxGeometry args={[len * 0.7, 0.02, wid * 0.85]} />
         <meshStandardMaterial color={deckColor} metalness={0.5} roughness={0.6} />
       </mesh>
-
-      {/* Bridge / command tower */}
       <mesh position={[len * 0.05, 0.36, 0]}>
         <boxGeometry args={[len * 0.18, 0.22, wid * 0.55]} />
-        <meshStandardMaterial color={deckColor} metalness={0.6} roughness={0.4} emissive={color} emissiveIntensity={accentEmissive} />
+        <meshStandardMaterial color={deckColor} metalness={0.6} roughness={0.4} emissive={color} emissiveIntensity={accentEmissive} toneMapped={false} />
       </mesh>
       <mesh position={[len * 0.05, 0.5, 0]}>
         <boxGeometry args={[len * 0.08, 0.1, wid * 0.35]} />
         <meshStandardMaterial color={deckColor} metalness={0.6} roughness={0.4} />
       </mesh>
-      {/* Antenna / mast */}
       <mesh position={[len * 0.05, 0.72, 0]}>
         <cylinderGeometry args={[0.02, 0.02, 0.32, 6]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={accentEmissive * 1.5} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={accentEmissive * 1.5} toneMapped={false} />
       </mesh>
-
-      {/* Turrets (front of bridge) */}
       {Array.from({ length: turretCount }).map((_, i) => {
         const t = (i + 0.5) / turretCount;
         const px = -len * 0.3 + t * (len * 0.25);
@@ -99,17 +86,15 @@ function ShipMesh({ ship, color, sunk }: { ship: PlacedShip; color: string; sunk
           </group>
         );
       })}
-
-      {/* Glow waterline */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[len * 0.95, wid * 1.15]} />
-        <meshBasicMaterial color={color} transparent opacity={sunk ? 0.05 : 0.18} />
+        <meshBasicMaterial color={color} transparent opacity={sunk ? 0.12 : 0.18} />
       </mesh>
     </group>
   );
 }
 
-function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" }) {
+function HitMarker({ x, y, type, boardSize }: { x: number; y: number; type: "hit" | "miss"; boardSize: number }) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame((s) => {
     if (ref.current && type === "hit") {
@@ -117,7 +102,7 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
     }
   });
   if (type === "miss") {
-    const [px, , pz] = gridPos(x, y);
+    const [px, , pz] = gridPos(x, y, boardSize);
     return (
       <group position={[px, 0.06, pz]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -131,7 +116,7 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
       </group>
     );
   }
-  const [px, , pz] = gridPos(x, y);
+  const [px, , pz] = gridPos(x, y, boardSize);
   return (
     <group position={[px, 0.45, pz]}>
       <mesh ref={ref}>
@@ -144,7 +129,7 @@ function HitMarker({ x, y, type }: { x: number; y: number; type: "hit" | "miss" 
 }
 
 function CellTile({
-  x, y, hovered, previewState, shot, marked, onClick, onRightClick, onEnter, onLeave, isEnemy,
+  x, y, hovered, previewState, shot, marked, onClick, onRightClick, onEnter, onLeave, isEnemy, boardSize,
 }: {
   x: number; y: number;
   hovered: boolean;
@@ -153,6 +138,7 @@ function CellTile({
   marked: boolean;
   onClick: () => void; onRightClick: () => void; onEnter: () => void; onLeave: () => void;
   isEnemy: boolean;
+  boardSize: number;
 }) {
   const baseColor = isEnemy ? "#150a10" : "#08111c";
   const hoverColor = isEnemy ? "#ff3b30" : "#3ad8ff";
@@ -165,7 +151,7 @@ function CellTile({
   else if (hovered && !shot) { color = hoverColor; opacity = 0.55; }
   else if (marked) { color = "#ffd84a"; opacity = 0.4; }
 
-  const [px, , pz] = gridPos(x, y);
+  const [px, , pz] = gridPos(x, y, boardSize);
 
   return (
     <group>
@@ -200,11 +186,11 @@ function CellTile({
   );
 }
 
-function GridLines() {
+function GridLines({ boardSize }: { boardSize: number }) {
   const lines = useMemo(() => {
     const pts: number[] = [];
-    const half = (BOARD_SIZE * CELL) / 2;
-    for (let i = 0; i <= BOARD_SIZE; i++) {
+    const half = (boardSize * CELL) / 2;
+    for (let i = 0; i <= boardSize; i++) {
       const p = -half + i * CELL;
       pts.push(-half, 0.01, p, half, 0.01, p);
       pts.push(p, 0.01, -half, p, 0.01, half);
@@ -212,7 +198,7 @@ function GridLines() {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
     return geo;
-  }, []);
+  }, [boardSize]);
   return (
     <lineSegments>
       <primitive object={lines} attach="geometry" />
@@ -221,16 +207,17 @@ function GridLines() {
   );
 }
 
-function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview }: BoardProps) {
+function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onCellHover, hoverPreview, boardSize = 10, playerColor }: BoardProps) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const isLight = typeof document !== "undefined" && document.documentElement.classList.contains("light");
-  const bgColor = isLight ? "#dde8f5" : "#05070d";
+  const bgColor = isLight ? "#e8eef5" : "#05070d";
+  const shipColor = playerColor ?? (isEnemy ? "#ff5b50" : "#3ad8ff");
+
   const previewSet = useMemo(() => {
     if (!hoverPreview) return null;
     return new Set(hoverPreview.cells.map((c) => cellKey(c.x, c.y)));
   }, [hoverPreview]);
 
-  // Cells belonging to sunk ships — hit markers hidden here (model replaces them)
   const sunkCells = useMemo(() => {
     const s = new Set<string>();
     for (const ship of board.ships) {
@@ -241,9 +228,14 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
     return s;
   }, [board.ships]);
 
+  // Camera distance scales with board size
+  const camDist = boardSize * 0.9 + 6;
+  const fogNear = boardSize * 1.2 + 4;
+  const fogFar = boardSize * 2.8 + 10;
+
   const cells = [];
-  for (let y = 0; y < BOARD_SIZE; y++) {
-    for (let x = 0; x < BOARD_SIZE; x++) {
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
       const k = cellKey(x, y);
       const shot = board.shots[k];
       const isHover = hover?.x === x && hover?.y === y;
@@ -257,6 +249,7 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
           previewState={preview}
           marked={marked}
           isEnemy={isEnemy}
+          boardSize={boardSize}
           onEnter={() => { setHover({ x, y }); onCellHover?.(x, y); }}
           onLeave={() => { setHover(null); onCellHover?.(x, null); }}
           onClick={() => onCellClick?.(x, y)}
@@ -269,28 +262,27 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
   return (
     <>
       <color attach="background" args={[bgColor]} />
-      <fog attach="fog" args={[bgColor, 16, 34]} />
-      <ambientLight intensity={isLight ? 1.1 : 0.9} />
-      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.6 : 1.5} />
-      <pointLight position={[0, 4, 0]} intensity={1.8} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
-      <pointLight position={[0, 6, 6]} intensity={0.9} color={"#ffffff"} />
+      <fog attach="fog" args={[bgColor, fogNear, fogFar]} />
+      <ambientLight intensity={isLight ? 0.9 : 0.55} />
+      <directionalLight position={[5, 10, 5]} intensity={isLight ? 1.3 : 1.1} />
+      <pointLight position={[0, 4, 0]} intensity={1.2} color={isEnemy ? "#ff3b30" : "#3ad8ff"} />
 
       <group>
         <mesh position={[0, -0.05, 0]} receiveShadow>
-          <boxGeometry args={[BOARD_SIZE + 0.4, 0.1, BOARD_SIZE + 0.4]} />
-          <meshStandardMaterial color={isLight ? "#bdd4ee" : "#070c14"} metalness={0.5} roughness={0.5} />
+          <boxGeometry args={[boardSize + 0.4, 0.1, boardSize + 0.4]} />
+          <meshStandardMaterial color={isLight ? "#cfd8e3" : "#070c14"} metalness={0.5} roughness={0.5} />
         </mesh>
-        <GridLines />
+        <GridLines boardSize={boardSize} />
         {cells}
         {board.ships.map((s) =>
           (revealShips || s.hits >= s.size) ? (
-            <ShipMesh key={s.id} ship={s} color={isEnemy ? "#ff5b50" : "#3ad8ff"} sunk={s.hits >= s.size} />
+            <ShipMesh key={s.id} ship={s} color={shipColor} sunk={s.hits >= s.size} boardSize={boardSize} />
           ) : null
         )}
         {Object.entries(board.shots).map(([k, v]) => {
           if (v === "hit" && sunkCells.has(k)) return null;
           const [x, y] = k.split(",").map(Number);
-          return <HitMarker key={k} x={x} y={y} type={v} />;
+          return <HitMarker key={k} x={x} y={y} type={v} boardSize={boardSize} />;
         })}
       </group>
 
@@ -298,8 +290,8 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
         enablePan={false}
         enableDamping
         dampingFactor={0.12}
-        minDistance={10}
-        maxDistance={22}
+        minDistance={camDist * 0.7}
+        maxDistance={camDist * 1.6}
         maxPolarAngle={Math.PI / 2.2}
         minPolarAngle={Math.PI / 6}
       />
@@ -308,14 +300,16 @@ function Scene({ board, isEnemy, revealShips, onCellClick, onCellRightClick, onC
 }
 
 export function GameBoard3D(props: BoardProps) {
+  const boardSize = props.boardSize ?? 10;
+  const camDist = boardSize * 0.9 + 6;
   return (
     <div className="relative w-full h-full" onContextMenu={(e) => e.preventDefault()}>
       <Canvas
-        camera={{ position: [0, 12, 12], fov: 45 }}
+        camera={{ position: [0, camDist * 0.85, camDist * 0.85], fov: 45 }}
         dpr={[1.5, 2]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
-        <Scene {...props} />
+        <Scene {...props} boardSize={boardSize} />
       </Canvas>
     </div>
   );
