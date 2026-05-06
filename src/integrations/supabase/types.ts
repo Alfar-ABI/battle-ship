@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_sessions: {
+        Row: {
+          created_at: string
+          current_turn: string
+          ended_at: string | null
+          game_mode: string
+          guest_nickname: string | null
+          guest_player_id: string | null
+          guest_ready: boolean
+          guest_ships: Json | null
+          guest_shots: Json
+          host_nickname: string
+          host_player_id: string
+          host_ready: boolean
+          host_ships: Json | null
+          host_shots: Json
+          id: string
+          started_at: string | null
+          status: string
+          winner: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_turn?: string
+          ended_at?: string | null
+          game_mode?: string
+          guest_nickname?: string | null
+          guest_player_id?: string | null
+          guest_ready?: boolean
+          guest_ships?: Json | null
+          guest_shots?: Json
+          host_nickname?: string
+          host_player_id: string
+          host_ready?: boolean
+          host_ships?: Json | null
+          host_shots?: Json
+          id?: string
+          started_at?: string | null
+          status?: string
+          winner?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_turn?: string
+          ended_at?: string | null
+          game_mode?: string
+          guest_nickname?: string | null
+          guest_player_id?: string | null
+          guest_ready?: boolean
+          guest_ships?: Json | null
+          guest_shots?: Json
+          host_nickname?: string
+          host_player_id?: string
+          host_ready?: boolean
+          host_ships?: Json | null
+          host_shots?: Json
+          id?: string
+          started_at?: string | null
+          status?: string
+          winner?: string | null
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           created_at: string
